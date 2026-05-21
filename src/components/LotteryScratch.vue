@@ -286,4 +286,32 @@ function checkRevealed() {
   from { transform: translateY(0); }
   to { transform: translateY(-5px); }
 }
+
+@media (max-height: 500px) {
+  .lottery-scratch-container {
+    gap: 12px !important;
+    padding: 12px !important;
+  }
+
+  .scratch-card {
+    width: 240px !important;
+    height: 165px !important;
+    border-radius: 12px !important;
+  }
+
+  .pattern-cell {
+    font-size: 38px !important;
+    border-radius: 6px !important;
+  }
+
+  .prize-text {
+    font-size: 16px !important;
+  }
+
+  .btn-lottery-close {
+    padding: 10px 28px !important;
+    font-size: 14px !important;
+    border-radius: 22px !important;
+  }
+}
 </style>

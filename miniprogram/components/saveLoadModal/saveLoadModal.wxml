@@ -1,0 +1,40 @@
+<view class="modal-overlay" bindtap="onClose">
+  <view class="modal-content" catchtap="preventBubble">
+    <text class="modal-title">{{mode === 'save' ? '💾 保存游戏' : '📂 读取存档'}}</text>
+
+    <view class="save-slots">
+      <view
+        wx:for="{{saveSlots}}"
+        wx:key="slotIndex"
+        class="save-slot {{selectedSlot === item.slotIndex ? 'active' : ''}} {{!item.timestamp && mode === 'load' ? 'disabled' : ''}}"
+        bindtap="selectSlot"
+        data-index="{{item.slotIndex}}"
+      >
+        <view class="slot-header">
+          <text class="slot-name">{{item.isAuto ? '自动存档' : '存档 ' + item.slotIndex}}</text>
+          <view wx:if="{{item.isAuto}}" class="auto-badge">
+            <text>自动</text>
+          </view>
+        </view>
+        <view wx:if="{{item.timestamp}}" class="slot-info">
+          <text class="slot-time">{{item.formattedTime}}</text>
+          <text class="slot-details">{{item.playerCount}} 玩家 · 第 {{item.round}} 回合</text>
+        </view>
+        <view wx:else class="slot-empty">
+          <text>空存档位</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="modal-actions">
+      <button class="btn btn-secondary" bindtap="onClose">取消</button>
+      <button
+        class="btn btn-primary"
+        disabled="{{(selectedSlot === null && mode === 'save') || (selectedSlot === null && mode === 'load')}}"
+        bindtap="confirmAction"
+      >
+        {{mode === 'save' ? '保存' : '读取'}}
+      </button>
+    </view>
+  </view>
+</view>

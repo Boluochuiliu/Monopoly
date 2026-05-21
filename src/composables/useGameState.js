@@ -58,20 +58,13 @@ export function useGameState() {
   const upgradeModal = ref(false);
   const selectingPropertyForFree = ref(false);
   const freePropertyPlayerId = ref(null);
-  const gamePhase = ref('playing');
+  const gamePhase = ref('start');
   const mortgageModal = ref(false);
   const shopModal = ref(false);
   const itemUseModal = ref(false);
   const lotteryModal = ref(false);
   const fundModal = ref(false);
   const lotteryResult = ref(null);
-  const liquidationModal = ref(false);
-  const liquidationState = reactive({
-    player: null,
-    properties: [],
-    totalCash: 0,
-    onConfirm: null
-  });
   const placingBomb = ref(false);
   const bombs = reactive({});
   const propertyEffectTile = reactive({
@@ -100,6 +93,9 @@ export function useGameState() {
   let onSkipTurnCallback = null;
   let onBuffActivationCallback = null;
   let onAuctionSuccessCallback = null;
+  let onJailFreeRentCallback = null;
+  let onFreeRentCallback = null;
+  let onActionNotifyCallback = null;
   let isEndingTurn = false;
   
   function setOnCashChangeCallback(callback) {
@@ -116,6 +112,61 @@ export function useGameState() {
   
   function setOnAuctionSuccessCallback(callback) {
     onAuctionSuccessCallback = callback;
+  }
+  
+  function setOnJailFreeRentCallback(callback) {
+    onJailFreeRentCallback = callback;
+  }
+  
+  function triggerJailFreeRent(playerIndex, ownerName) {
+    if (onJailFreeRentCallback) {
+      onJailFreeRentCallback(playerIndex, ownerName);
+    }
+  }
+  
+  function setOnFreeRentCallback(callback) {
+    onFreeRentCallback = callback;
+  }
+
+  function setOnActionNotifyCallback(callback) {
+    onActionNotifyCallback = callback;
+  }
+
+  function triggerActionNotify(text, playerIndex = null, detail = '') {
+    if (onActionNotifyCallback) {
+      const idx = playerIndex !== null ? playerIndex : currentPlayerIndex.value;
+      onActionNotifyCallback(text, idx, detail);
+    }
+  }
+
+  let onStateChangeCallback = null;
+  let onAuctionEventCallback = null;
+  
+  function setOnStateChangeCallback(callback) {
+    onStateChangeCallback = callback;
+  }
+  
+  function setOnAuctionEventCallback(callback) {
+    onAuctionEventCallback = callback;
+  }
+  
+  function triggerStateChange() {
+    if (onStateChangeCallback) {
+      const state = getGameState();
+      onStateChangeCallback(state);
+    }
+  }
+  
+  function triggerAuctionEvent(eventType, data = {}) {
+    if (onAuctionEventCallback) {
+      onAuctionEventCallback(eventType, data);
+    }
+  }
+  
+  function triggerFreeRent(playerIndex) {
+    if (onFreeRentCallback) {
+      onFreeRentCallback(playerIndex);
+    }
   }
   
   function triggerCashChange(amount, playerIndex = null) {
@@ -169,14 +220,22 @@ export function useGameState() {
     return w;
   });
 
-  function initPlayers(humanCount = 2, aiCount = 2) {
+  function initPlayers(humanCount = 2, aiCount = 2, onlineNames = null) {
     players.value = [];
     const totalPlayers = humanCount + aiCount;
     for (let i = 0; i < totalPlayers; i++) {
       const isAI = i >= humanCount;
+      let name;
+      if (onlineNames && i < onlineNames.length) {
+        name = onlineNames[i];
+      } else if (isAI) {
+        name = `🤖 AI${i - humanCount + 1}`;
+      } else {
+        name = `玩家${i + 1}`;
+      }
       players.value.push({
         id: i,
-        name: isAI ? `🤖 AI${i - humanCount + 1}` : `玩家${i + 1}`,
+        name,
         avatar: PLAYER_AVATARS[i],
         cash: INITIAL_CASH,
         position: 0,
@@ -258,6 +317,7 @@ export function useGameState() {
       player.skipNextTurn = false;
       message.value = `${player.name} 跳过回合！`;
       console.log('[DEBUG] rollDice - player skipping turn, calling endTurn');
+      triggerSkipTurn(currentPlayerIndex.value);
       endTurn();
       return;
     }
@@ -288,6 +348,7 @@ export function useGameState() {
         
         diceResult.value = result;
         console.log('[DEBUG] rollDice - final diceResult:', diceResult.value);
+        triggerStateChange();
         
         setTimeout(() => {
           movePlayer(result);
@@ -319,7 +380,7 @@ export function useGameState() {
   }
 
   // 测试用：指定骰子点数
-  function rollDiceWithValue(value) {
+  function rollDiceWithValue(value, skipTileProcessing = false) {
     if (isRolling.value) return;
     if (value < 1 || value > 9) return;
     
@@ -336,16 +397,16 @@ export function useGameState() {
       diceResult.value = value;
       
       setTimeout(() => {
-        movePlayer(value);
+        movePlayer(value, skipTileProcessing);
       }, 500);
     } finally {
       isRolling.value = false;
     }
   }
 
-  function movePlayer(steps) {
+  function movePlayer(steps, skipTileProcessing = false) {
     const player = currentPlayer.value;
-    console.log('[DEBUG] movePlayer called with steps:', steps, 'player:', player.name, 'player.buffs:', player.buffs);
+    console.log('[DEBUG] movePlayer called with steps:', steps, 'player:', player.name, 'player.buffs:', player.buffs, 'skipTileProcessing:', skipTileProcessing);
 
     if (player.bankrupt) {
       endTurn();
@@ -371,6 +432,7 @@ export function useGameState() {
       const remainingTurns = maxJailTurns - player.jailTurns + 1;
       if (player.jailTurns <= maxJailTurns) {
         message.value = `${player.name} 在监狱中，剩余 ${remainingTurns} 回合`;
+        triggerSkipTurn(currentPlayerIndex.value);
         endTurn();
         return;
       } else {
@@ -403,6 +465,13 @@ export function useGameState() {
         setTimeout(moveOneStep, 300);
       } else {
         player.isMoving = false;
+        triggerStateChange();
+        checkPendingSync();
+        
+        if (skipTileProcessing) {
+          console.log('[联机调试] skipTileProcessing=true, 跳过格子逻辑');
+          return;
+        }
         
         const tile = mapTiles[player.position];
         if (!tile) {
@@ -610,6 +679,7 @@ export function useGameState() {
       const owner = players.value[prop.owner];
       if (owner.inJail) {
         message.value += `，${owner.name} 在监狱中，免收过路费`;
+        triggerJailFreeRent(prop.owner, owner.name);
         endTurn();
       } else {
         calculateRent(tile, prop, owner);
@@ -702,9 +772,13 @@ export function useGameState() {
     }
     
     const freeRent = player.buffs.find(b => b.name === 'freeRent');
+    console.log('[DEBUG] calculateRent - freeRent found:', freeRent);
+    console.log('[DEBUG] calculateRent - player.buffs:', player.buffs);
+    console.log('[DEBUG] calculateRent - currentPlayerIndex:', currentPlayerIndex.value);
     if (freeRent) {
       message.value += `，使用免租金牌免付过路费！`;
       player.buffs = player.buffs.filter(b => b.name !== 'freeRent');
+      triggerFreeRent(currentPlayerIndex.value);
       endTurn();
       return;
     }
@@ -737,6 +811,7 @@ export function useGameState() {
     receiver.cash += amount;
     triggerCashChange(amount, receiverIndex);
     message.value += `，${payer.name} 支付 ${amount} 金币给 ${receiver.name}`;
+    triggerActionNotify(`${payer.name} 支付 ${amount} 金币给 ${receiver.name}`);
     
     const bankruptResult = checkBankruptcyAndLiquidate(payer);
     endTurn(); // 不管处理了什么，都应该结束回合
@@ -748,7 +823,8 @@ export function useGameState() {
     }
     const card = chanceDeck.value.pop();
     selectedCard.value = { ...card, type: 'chance' };
-    
+    triggerActionNotify(`${currentPlayer.value.name} 触发了机会牌：${card.title}`, null, card.description);
+
     if (currentPlayer.value.isAI) {
       setTimeout(() => {
         closeCardModal();
@@ -762,7 +838,8 @@ export function useGameState() {
     }
     const card = fateDeck.value.pop();
     selectedCard.value = { ...card, type: 'fate' };
-    
+    triggerActionNotify(`${currentPlayer.value.name} 触发了命运牌：${card.title}`, null, card.description);
+
     if (currentPlayer.value.isAI) {
       setTimeout(() => {
         closeCardModal();
@@ -1028,84 +1105,20 @@ export function useGameState() {
     return props;
   }
 
-  function prepareLiquidation(player) {
-    const cash = player.cash;
-    if (cash >= -500) {
-      return { prepared: false, remainingCash: cash };
-    }
-
-    const playerProps = getPlayerProperties(player.id);
-    if (playerProps.length === 0) {
-      handleBankrupt(player);
-      return { prepared: true, immediate: true, remainingCash: 0 };
-    }
-
-    const shuffled = [...playerProps].sort(() => Math.random() - 0.5);
-    let currentCash = cash;
-    const toLiquidate = [];
-
-    for (const item of shuffled) {
-      if (currentCash >= -500) break;
-      currentCash += item.liquidationValue;
-      toLiquidate.push(item);
-    }
-
-    liquidationState.player = player;
-    liquidationState.properties = toLiquidate;
-    liquidationState.originalCash = cash; // 保存原始现金
-    liquidationState.finalCash = currentCash; // 清算后现金
-    liquidationState.onConfirm = () => {
-      for (const item of toLiquidate) {
-        const prop = properties[item.id];
-        prop.owner = null;
-        prop.level = 0;
-        prop.investment = 0;
-      }
-      player.cash = currentCash;
-      message.value += `，强制清算 ${toLiquidate.length} 处地产，获得 ${toLiquidate.reduce((sum, p) => sum + p.liquidationValue, 0)} 金币！`;
-      liquidationModal.value = false;
-      
-      // 检查清算后现金是否仍然低于-500，如果是则直接破产
-      if (player.cash < -500) {
-        message.value += `，清算后现金仍为 ${player.cash}，低于 -500，强制破产！`;
-        handleBankrupt(player);
-      }
-      
-      setTimeout(() => {
-        endTurn();
-      }, 500);
-    };
-
-    return { prepared: true, immediate: false };
-  }
-
   function checkBankruptcyAndLiquidate(player) {
     const cash = player.cash;
 
-    // Emergency Liquidation: cash < -1000, immediately liquidate
-    if (cash < -1000) {
-      message.value = `${player.name} 现金低于 -1000！紧急清算！`;
-      const result = prepareLiquidation(player);
-      if (result.immediate) {
-        message.value += `，无地产可清算，强制破产！`;
-        handleBankrupt(player);
-      } else if (result.prepared) {
-        liquidationModal.value = true;
-      }
-      return { handled: true };
-    }
-
-    // Check bankruptcy warning state
+    // 现金 < -500，增加连续负现金回合数
     if (cash < -500) {
+      player.consecutiveNegativeRounds++;
+      
       // Player just entered warning zone
       if (!player.bankruptWarning && player.liquidationCountdown === undefined) {
         player.bankruptWarning = true;
-        player.liquidationCountdown = 2; // Start with 2 rounds countdown
-        message.value = `${player.name} 现金为 ${cash}，低于 -500，破产预警，还有两轮清算！`;
+        player.liquidationCountdown = 2;
+        message.value = `${player.name} 现金为 ${cash}，低于 -500，破产预警！`;
         return { handled: true };
       }
-      // Player already in warning, but countdown should only decrease at turn end
-      // Don't do anything here, countdown decreases in processTurnEndForBankruptcy
     } else {
       // Cash >= -500, clear warning if exists
       if (player.bankruptWarning) {
@@ -1113,6 +1126,8 @@ export function useGameState() {
         player.liquidationCountdown = undefined;
         message.value = `${player.name} 现金恢复到 ${cash}，解除破产预警！`;
       }
+      // 现金恢复，重置连续负现金回合数
+      player.consecutiveNegativeRounds = 0;
     }
     return { handled: false };
   }
@@ -1128,27 +1143,28 @@ export function useGameState() {
     if (cash >= -500) {
       player.bankruptWarning = false;
       player.liquidationCountdown = undefined;
+      player.consecutiveNegativeRounds = 0;
       message.value = `${player.name} 现金恢复到 ${cash}，解除破产预警！`;
       return { shouldStop: false };
+    }
+
+    // 检查连续两回合现金都低于-500，直接破产
+    if (player.consecutiveNegativeRounds >= 2) {
+      message.value = `${player.name} 连续两回合现金低于 -500，强制破产！`;
+      handleBankrupt(player);
+      return { shouldStop: true };
     }
 
     // Decrease countdown by 1
     player.liquidationCountdown--;
 
     if (player.liquidationCountdown <= 0) {
-      // Countdown reached 0, start liquidation
-      message.value = `${player.name} 清算倒计时结束，现金为 ${cash}，开始强制清算！`;
-      const result = prepareLiquidation(player);
-      if (result.immediate) {
-        message.value += `，无地产可清算，强制破产！`;
-        handleBankrupt(player);
-      } else if (result.prepared) {
-        liquidationModal.value = true;
-      }
+      // 强制破产
+      message.value = `${player.name} 清算倒计时结束，强制破产！`;
+      handleBankrupt(player);
       return { shouldStop: true };
     } else {
-      // 只在倒计时还没到0时才显示回合消息
-      message.value = `第 ${round.value} 回合，${player.name} 的回合，现金为 ${cash}，低于 -500，破产预警，还剩 ${player.liquidationCountdown} 轮清算！`;
+      message.value = `${player.name} 现金为 ${cash}，低于 -500，破产预警，还剩 ${player.liquidationCountdown} 轮！`;
       return { shouldStop: false };
     }
   }
@@ -1196,9 +1212,11 @@ export function useGameState() {
     
     if (tile.id === 31 && targetStation === 6) {
       message.value += `，传送到 ${targetTile.name}，途经起点！`;
+      triggerActionNotify(`${player.name} 传送到 ${targetTile.name}，途经起点！`);
       collectSalary(player);
     } else {
       message.value += `，传送到 ${targetTile.name}！`;
+      triggerActionNotify(`${player.name} 传送到 ${targetTile.name}`);
     }
     
     endTurn();
@@ -1211,11 +1229,13 @@ export function useGameState() {
       player.inJail = true;
       player.jailTurns = 0;
       message.value = `${player.name} 进入监狱！本回合暂停移动`;
+      triggerActionNotify(`${player.name} 被送入监狱！`);
       endTurn();
     } else {
       player.inJail = true;
       player.jailTurns = 0;
       message.value = `${player.name} 进入监狱！`;
+      triggerActionNotify(`${player.name} 被送入监狱！`);
       if (player.cash >= JAIL_BAIL) {
         propertyModal.value = { type: 'jail', playerId: player.id };
       } else {
@@ -1233,6 +1253,7 @@ export function useGameState() {
       player.inJail = false;
       player.jailTurns = 0;
       message.value = `${player.name} 缴纳了 ${JAIL_BAIL} 金币保释金，立即出狱！`;
+      triggerActionNotify(`${player.name} 缴纳了 ${JAIL_BAIL} 金币保释金出狱`);
       propertyModal.value = false;
       endTurn();
     } else {
@@ -1248,6 +1269,7 @@ export function useGameState() {
     if (existingBuff) {
       existingBuff.duration = 4;
       message.value = `${player.name}在市政厅刷新了免过路费效果，持续时间重置为4回合！`;
+      triggerActionNotify(`${player.name} 在市政厅刷新了免过路费效果`);
     } else {
       player.buffs.push({
         name: 'hallProtection',
@@ -1255,6 +1277,7 @@ export function useGameState() {
         used: false
       });
       message.value = `${player.name}获得了市政厅的祝福，4回合内首次进入他人地产免交过路费！`;
+      triggerActionNotify(`${player.name} 获得了市政厅的祝福，4回合免过路费`);
     }
     endTurn();
   }
@@ -1318,6 +1341,7 @@ export function useGameState() {
         player.cash -= item.price;
         triggerCashChange(-item.price);
         message.value = `${player.name} 购买了 ${item.name}！`;
+        triggerActionNotify(`${player.name} 在道具店购买了 ${item.name}（${item.price}金币）`);
         player.inventory[itemId]++;
         shopModal.value = false;
         endTurn();
@@ -1355,8 +1379,10 @@ export function useGameState() {
       player.cash += prize;
       triggerCashChange(prize);
       message.value += `${player.name} 购买彩票花费 ${price} 金币，中奖获得 ${prize} 金币！`;
+      triggerActionNotify(`${player.name} 购买彩票中奖！获得 ${prize} 金币`);
     } else {
       message.value += `${player.name} 购买彩票花费 ${price} 金币，未中奖！`;
+      triggerActionNotify(`${player.name} 购买彩票未中奖`);
     }
     
     lotteryModal.value = false;
@@ -1389,6 +1415,7 @@ export function useGameState() {
     diceResult.value = number;
     itemUseModal.value = false;
     message.value = `${player.name} 使用遥控骰子，前进 ${number} 步！`;
+    triggerActionNotify(`${player.name} 使用了遥控骰子，前进 ${number} 步`);
     setTimeout(() => {
       movePlayer(number);
     }, 500);
@@ -1421,6 +1448,7 @@ export function useGameState() {
     };
     placingBomb.value = false;
     message.value = `炸弹已安放在 ${mapTiles[tileId - 1]?.name}！`;
+    triggerActionNotify(`${currentPlayer.value.name} 安放了炸弹在 ${mapTiles[tileId - 1]?.name}`);
   }
 
   function triggerBomb(player, tileId) {
@@ -1442,17 +1470,22 @@ export function useGameState() {
             owner.cash += rent;
             triggerCashChange(-rent);
             message.value = `${player.name} 踩到炸弹！支付 ${rent} 金币租金给 ${owner.name}，然后被送入监狱！`;
+            triggerActionNotify(`${player.name} 踩到炸弹！支付 ${rent} 金币后被送入监狱`);
           } else {
             message.value = `${player.name} 踩到炸弹！现金不足支付租金，直接被送入监狱！`;
+            triggerActionNotify(`${player.name} 踩到炸弹！被送入监狱`);
           }
         } else {
           message.value = `${player.name} 踩到炸弹！被送入监狱，暂停2回合！`;
+          triggerActionNotify(`${player.name} 踩到炸弹！被送入监狱`);
         }
       } else {
         message.value = `${player.name} 踩到炸弹！被送入监狱，暂停2回合！`;
+        triggerActionNotify(`${player.name} 踩到炸弹！被送入监狱`);
       }
     } else {
       message.value = `${player.name} 踩到炸弹！被送入监狱，暂停2回合！`;
+      triggerActionNotify(`${player.name} 踩到炸弹！被送入监狱`);
     }
     
     player.position = 12;
@@ -1511,9 +1544,12 @@ export function useGameState() {
     auctionState.isAuctioning = true;
     
     message.value = `🎪 拍卖开始！${tile.name}，起拍价 ${startingPrice} 金币`;
+    triggerActionNotify(`${currentPlayer.value.name} 进入了拍卖行，拍卖 ${tile.name}！`);
     auctionModal.value = true;
     
     processNextAuctionPlayer();
+    
+    triggerAuctionEvent('auctionStart', getAuctionStateData());
   }
   
   function processNextAuctionPlayer() {
@@ -1707,6 +1743,8 @@ export function useGameState() {
     auctionState.currentPlayerIndex = playerIndex;
     
     advanceToNextPlayer();
+    
+    triggerAuctionEvent('auctionBid', getAuctionStateData());
   }
   
   function advanceToNextPlayer() {
@@ -1823,6 +1861,8 @@ export function useGameState() {
     }
     
     advanceToNextPlayer();
+    
+    triggerAuctionEvent('auctionPass', getAuctionStateData());
   }
   
   function nextAuctionPlayer() {
@@ -1868,6 +1908,12 @@ export function useGameState() {
     } else {
       message.value = `⏰ ${auctionState.property.name} 流拍，无人出价`;
     }
+    
+    triggerAuctionEvent('auctionEnd', {
+      winner: auctionState.currentBidder,
+      finalBid: auctionState.currentBid,
+      propertyName: auctionState.property?.name
+    });
     
     auctionModal.value = false;
     resetAuctionState();
@@ -1939,6 +1985,7 @@ export function useGameState() {
       refreshKey.value++;
       console.log('[DEBUG] donateToFund - refreshKey incremented:', refreshKey.value);
       message.value = `${player.name} 向社会基金捐款 ${amount} 金币，获得 3 次返利机会（每次返还 ${Math.floor(amount * 0.4)} 金币）！`;
+      triggerActionNotify(`${player.name} 向社会基金捐款 ${amount} 金币`);
     } else {
       message.value = `${player.name} 现金不足，无法捐款 ${amount} 金币`;
     }
@@ -1976,6 +2023,8 @@ export function useGameState() {
       prop.owner = player.id;
       prop.investment = tile.price;
       message.value = `${player.name} 购买了 ${tile.name}！`;
+      triggerActionNotify(`${player.name} 购买了 ${tile.name}（${tile.price}金币）`);
+      triggerStateChange();
     } else {
       message.value = `${player.name} 现金不足，无法购买！`;
     }
@@ -2025,6 +2074,7 @@ export function useGameState() {
       prop.level++;
       prop.investment += cost;
       message.value = `${player.name} 将 ${tile.name} 升级到 Lv.${prop.level}！`;
+      triggerActionNotify(`${player.name} 将 ${tile.name} 升级到 Lv.${prop.level}（${cost}金币）`);
     } else {
       message.value = `现金不足，无法升级！`;
     }
@@ -2123,6 +2173,7 @@ export function useGameState() {
     prop.investment = 0;
 
     message.value = `${player.name} 抵押了 ${mapTiles[propertyId - 1]?.name || '地产'}，获得 ${mortgageAmount} 金币！`;
+    triggerActionNotify(`${player.name} 抵押了 ${mapTiles[propertyId - 1]?.name || '地产'}，获得 ${mortgageAmount} 金币`);
   }
 
   function getPlayerPropertiesList(playerId) {
@@ -2204,8 +2255,10 @@ export function useGameState() {
     
     if (netProfit > 0) {
       message.value = `${player.name} 猜对了！掷出 ${actualResult}，赢得 ${netProfit} 金币！`;
+      triggerActionNotify(`${player.name} 在赌场猜对了！赢得 ${netProfit} 金币`);
     } else {
       message.value = `${player.name} 猜错了！掷出 ${actualResult}，损失 ${-netProfit} 金币`;
+      triggerActionNotify(`${player.name} 在赌场猜错了！损失 ${-netProfit} 金币`);
     }
     
     checkBankruptcyAndLiquidate(player);
@@ -2296,7 +2349,16 @@ export function useGameState() {
       console.log('[DEBUG] Player has bankruptcy warning');
       const bankruptcyResult = processTurnEndForBankruptcy(newPlayer);
       if (bankruptcyResult.shouldStop) {
-        // 如果需要停止（开始清算或破产），就不继续让玩家行动
+        // 破产后检查游戏是否结束
+        if (gameOver.value) {
+          console.log('[DEBUG] Game over detected after bankruptcy!');
+          gamePhase.value = 'ended';
+          if (winner.value) {
+            message.value = `🎉 游戏结束！${winner.value.name} 获胜！`;
+          }
+          isEndingTurn = false;
+          return;
+        }
         isEndingTurn = false;
         return;
       }
@@ -2341,6 +2403,8 @@ export function useGameState() {
     isRolling.value = false;
     isEndingTurn = false;
     console.log('[DEBUG] endTurn finished successfully, currentPlayerIndex:', currentPlayerIndex.value, 'isRolling:', isRolling.value, 'isEndingTurn:', isEndingTurn);
+    
+    triggerStateChange();
   }
 
   function adjustCurrentPlayerCash(amount) {
@@ -2390,6 +2454,103 @@ export function useGameState() {
     message.value = `游戏已加载！第 ${round.value} 回合，${currentPlayer.value.name} 的回合`;
   }
 
+  function getGameState() {
+    return {
+      players: JSON.parse(JSON.stringify(players.value)),
+      currentPlayerIndex: currentPlayerIndex.value,
+      round: round.value,
+      properties: { ...properties },
+      bombs: { ...bombs },
+      chanceDeck: [...chanceDeck.value],
+      fateDeck: [...fateDeck.value],
+      globalBuffs: JSON.parse(JSON.stringify(globalBuffs.value)),
+      turnHistory: JSON.parse(JSON.stringify(turnHistory.value)),
+      auctionState: { ...auctionState },
+      message: message.value
+    };
+  }
+
+  let pendingSyncState = null;
+
+  function syncFromHost(state) {
+    const anyMoving = players.value.some(p => p.isMoving);
+    if (anyMoving) {
+      console.log('[联机调试] syncFromHost 延迟 - 有玩家正在移动动画中，暂存状态');
+      pendingSyncState = state;
+      return;
+    }
+    applySyncState(state);
+  }
+
+  function applySyncState(state) {
+    console.log('[联机调试] applySyncState 开始, players:', state.players?.length);
+    players.value = JSON.parse(JSON.stringify(state.players));
+    currentPlayerIndex.value = state.currentPlayerIndex;
+    round.value = state.round;
+    
+    Object.keys(state.properties).forEach(id => {
+      properties[id] = { ...state.properties[id] };
+    });
+    
+    Object.keys(state.bombs).forEach(key => {
+      bombs[key] = { ...state.bombs[key] };
+    });
+    
+    chanceDeck.value = [...state.chanceDeck];
+    fateDeck.value = [...state.fateDeck];
+    globalBuffs.value = JSON.parse(JSON.stringify(state.globalBuffs));
+    turnHistory.value = JSON.parse(JSON.stringify(state.turnHistory));
+    
+    Object.assign(auctionState, state.auctionState);
+    
+    message.value = state.message;
+    console.log('[联机调试] applySyncState 完成, players.value.length:', players.value.length);
+  }
+
+  function checkPendingSync() {
+    if (pendingSyncState && !players.value.some(p => p.isMoving)) {
+      console.log('[联机调试] 应用暂存的状态同步');
+      applySyncState(pendingSyncState);
+      pendingSyncState = null;
+    }
+  }
+
+  function getAuctionStateData() {
+    return {
+      property: auctionState.property ? { ...auctionState.property } : null,
+      startingPrice: auctionState.startingPrice,
+      currentBid: auctionState.currentBid,
+      currentBidder: auctionState.currentBidder,
+      bids: [...auctionState.bids],
+      playerOrder: auctionState.playerOrder.map(p => ({
+        id: p.id, name: p.name, cash: p.cash, isAI: p.isAI, bankrupt: p.bankrupt
+      })),
+      currentPlayerIndex: auctionState.currentPlayerIndex,
+      passedPlayers: [...auctionState.passedPlayers],
+      biddedPlayers: [...auctionState.biddedPlayers],
+      isAuctioning: auctionState.isAuctioning,
+      isAIProcessing: auctionState.isAIProcessing
+    };
+  }
+
+  function applyAuctionState(data) {
+    auctionState.property = data.property;
+    auctionState.startingPrice = data.startingPrice;
+    auctionState.currentBid = data.currentBid;
+    auctionState.currentBidder = data.currentBidder;
+    auctionState.bids = [...data.bids];
+    auctionState.playerOrder = data.playerOrder.map(p => {
+      const existing = auctionState.playerOrder.find(ep => ep.id === p.id);
+      return existing ? { ...existing, ...p } : p;
+    });
+    auctionState.currentPlayerIndex = data.currentPlayerIndex;
+    auctionState.passedPlayers = [...data.passedPlayers];
+    auctionState.biddedPlayers = [...data.biddedPlayers];
+    auctionState.isAuctioning = data.isAuctioning;
+    auctionState.isAIProcessing = data.isAIProcessing;
+    auctionModal.value = data.isAuctioning;
+  }
+
   return {
     players,
     currentPlayer,
@@ -2410,8 +2571,6 @@ export function useGameState() {
     itemUseModal,
     lotteryModal,
     lotteryResult,
-    liquidationModal,
-    liquidationState,
     placingBomb,
     bombs,
     propertyEffectTile,
@@ -2431,6 +2590,9 @@ export function useGameState() {
     setOnSkipTurnCallback,
     setOnBuffActivationCallback,
     setOnAuctionSuccessCallback,
+    setOnJailFreeRentCallback,
+    setOnFreeRentCallback,
+    setOnActionNotifyCallback,
     rollDice,
     rollDiceWithValue,
     rollDiceWithRemoteValue,
@@ -2448,6 +2610,7 @@ export function useGameState() {
     endTurn,
     mapTiles,
     triggerCashChange,
+    triggerActionNotify,
     buyShopItem,
     closeLotteryModal,
     useItem,
@@ -2469,6 +2632,14 @@ export function useGameState() {
     FUND_AMOUNTS,
     processTurnEndForBankruptcy,
     checkBankruptcyAndLiquidate,
-    importSaveData
+    importSaveData,
+    getGameState,
+    syncFromHost,
+    setOnStateChangeCallback,
+    setOnAuctionEventCallback,
+    getAuctionStateData,
+    applyAuctionState,
+    startAuction,
+    resetAuctionState
   };
 }

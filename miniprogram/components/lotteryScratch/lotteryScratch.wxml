@@ -1,0 +1,28 @@
+<view class="lottery-scratch-container">
+  <view class="scratch-card">
+    <view class="pattern-grid">
+      <view
+        wx:for="{{patterns}}"
+        wx:key="index"
+        class="pattern-cell"
+      >
+        <text>{{item}}</text>
+      </view>
+    </view>
+    <canvas
+      canvas-id="scratchCanvas"
+      class="scratch-layer"
+      bindtouchstart="onTouchStart"
+      bindtouchmove="onTouchMove"
+      bindtouchend="onTouchEnd"
+    ></canvas>
+  </view>
+
+  <view class="lottery-prize-display" wx:if="{{isRevealed}}">
+    <text class="prize-text {{prize > 0 ? 'win' : ''}}">{{prize > 0 ? '🎉 恭喜获得 ' + prize + ' 金币！' : '😢 谢谢参与，下次好运！'}}</text>
+  </view>
+
+  <button wx:if="{{isRevealed}}" class="btn-lottery-close {{prize > 0 ? 'win' : ''}}" bindtap="onClose">
+    {{prize > 0 ? '🎉 领取奖励' : '😢 确定'}}
+  </button>
+</view>

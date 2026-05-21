@@ -1,13 +1,63 @@
 <template>
-  <div class="game-board">
-    <div class="board-container" ref="boardRef">
+  <div class="game-board" ref="boardContainerRef">
+    <!-- 缩放控件 -->
+    <div class="zoom-controls">
+      <button 
+        class="zoom-btn" 
+        @click="responsiveMap?.zoomOut()"
+        title="缩小"
+      >
+        ➖
+      </button>
+      
+      <button 
+        class="zoom-btn zoom-reset" 
+        @click="responsiveMap?.resetZoom()"
+        title="重置缩放"
+      >
+        {{ responsiveMap ? Math.round(responsiveMap.scale.value * 100) : 100 }}%
+      </button>
+      
+      <button 
+        class="zoom-btn" 
+        @click="responsiveMap?.zoomIn()"
+        title="放大"
+      >
+        ➕
+      </button>
+      
+      <button 
+        class="zoom-btn" 
+        @click="responsiveMap?.resetZoom()"
+        title="重置"
+      >
+        ↺
+      </button>
+    </div>
+
+    <Transition name="action-notify">
+      <div v-if="actionNotifyText" class="action-notify-bar">
+        <span class="action-notify-icon">📢</span>
+        <div class="action-notify-content">
+          <span class="action-notify-text">{{ actionNotifyText }}</span>
+          <span v-if="actionNotifyDetail" class="action-notify-detail">{{ actionNotifyDetail }}</span>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 地图容器 - 应用响应式样式 -->
+    <div 
+      class="board-container"
+      :style="mapTransformStyle"
+      :class="{ 'is-dragging': responsiveMap?.isDragging }"
+    >
       <div v-if="auctionSuccessMessage" class="notification-overlay">
         <div class="auction-success-message">
           {{ auctionSuccessMessage }}
         </div>
       </div>
-      
-      <div v-if="showDice && currentPlayer" class="dice-center-container">
+
+      <div v-if="showDice && currentPlayer" class="dice-center-container" :style="{ '--player-color': currentPlayer.color.primary }">
         <button class="btn-center-dice" @click="$emit('rollDice')">
           <span class="dice-icon">🎲</span>
           <span class="dice-text">掷骰子</span>
@@ -23,6 +73,15 @@
         <div class="current-player-indicator">
           <span class="player-name">{{ currentPlayer.name }}</span>
           <span class="turn-badge">行动中</span>
+        </div>
+        <div class="test-toggle-container">
+          <button 
+            class="toggle-test-panel" 
+            :class="{ active: showTestPanel }"
+            @click="$emit('toggleTestPanel')"
+          >
+            {{ showTestPanel ? '隐藏测试' : '显示测试' }}
+          </button>
         </div>
       </div>
       
@@ -54,6 +113,7 @@
         >
           <div v-if="tile" class="tile-content">
             <div class="tile-icon" v-if="getTileIcon(tile)">{{ getTileIcon(tile) }}</div>
+            <div v-if="tile.type === 'property' && tile.block" class="tile-block">{{ tile.block }}</div>
             <div class="tile-name">{{ tile.name }}</div>
             <div v-if="tile.type === 'property'" class="tile-price">💰{{ tile.price }}</div>
             <div v-if="tile.type === 'property' && getPropertyLevel(tile.id) > 0" class="tile-level">
@@ -72,10 +132,16 @@
           :class="{ 
             'is-moving': player.isMoving, 
             'current-turn': currentPlayerIndex === player.id,
-            'has-hall-buff': hasHallProtection(player)
+            'has-hall-buff': hasHallProtection(player),
+            'in-jail': player.inJail,
+            'skip-turn': player.skipNextTurn
           }"
           :style="getPlayerStyle(player)"
         >
+          <div class="skip-turn-indicator" v-if="player.inJail || player.skipNextTurn">
+            <span class="skip-icon">{{ player.inJail ? '🔒' : '⏭️' }}</span>
+            <span class="skip-text">{{ player.inJail ? '监狱中' : '跳过' }}</span>
+          </div>
           <div class="character-body" :style="{ backgroundColor: player.color.primary }">
             <div class="character-face">{{ player.avatar }}</div>
             <div class="character-shadow"></div>
@@ -84,11 +150,19 @@
         </div>
       </div>
     </div>
+    
+    <!-- 首次使用提示 -->
+    <transition name="fade">
+      <div v-if="showDragHint" class="drag-hint">
+        💡 使用滚轮缩放，拖动查看地图
+      </div>
+    </transition>
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useResponsiveMap } from '../composables/useResponsiveMap'
 
 const props = defineProps({
   mapTiles: {
@@ -142,14 +216,66 @@ const props = defineProps({
   hasItems: {
     type: Boolean,
     default: false
+  },
+  showTestPanel: {
+    type: Boolean,
+    default: false
+  },
+  actionNotifyText: {
+    type: String,
+    default: ''
+  },
+  actionNotifyDetail: {
+    type: String,
+    default: ''
   }
 })
 
-const emit = defineEmits(['selectFreeProperty', 'placeBomb', 'cancelBomb', 'rollDice', 'useItem'])
+const emit = defineEmits(['selectFreeProperty', 'placeBomb', 'cancelBomb', 'rollDice', 'useItem', 'toggleTestPanel'])
 
 const boardRef = ref(null)
 const TILE_SIZE = 75
 const GAP = 5
+
+// ========== 新增：响应式地图 ==========
+const boardContainerRef = ref(null)
+const responsiveMap = ref(null)
+const showDragHint = ref(false)
+
+onMounted(() => {
+  if (boardContainerRef.value) {
+    responsiveMap.value = useResponsiveMap(boardContainerRef)
+    responsiveMap.value.init()
+    
+    // 显示提示（3秒后自动消失）
+    setTimeout(() => {
+      showDragHint.value = true
+      setTimeout(() => {
+        showDragHint.value = false
+      }, 3000)
+    }, 1000)
+  }
+})
+
+onUnmounted(() => {
+  if (responsiveMap.value) {
+    responsiveMap.value.destroy()
+  }
+})
+
+// 计算CSS Transform样式
+const mapTransformStyle = computed(() => {
+  if (!responsiveMap.value) return {}
+  
+  return {
+    transform: `translate(${responsiveMap.value.offsetX}px, ${responsiveMap.value.offsetY}px) 
+                      scale(${responsiveMap.value.scale})`,
+    transformOrigin: 'center center',
+    transition: responsiveMap.value.isDragging.value 
+      ? 'none' 
+      : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+  }
+})
 
 const boardLayout = computed(() => {
   const layout = []
@@ -200,6 +326,8 @@ function getTileClass(tile) {
       if (prop.level > 0) {
         classes.push(`upgrade-level-${prop.level}`)
       }
+    } else if (props.selectingPropertyForFree) {
+      classes.push('selectable')
     }
     
     if (props.auctionProperty && props.auctionProperty.id === tile.id) {
@@ -300,22 +428,109 @@ function handleTileClick(tile) {
     }
   }
 }
+
+defineExpose({
+  zoomIn() { responsiveMap.value?.zoomIn() },
+  zoomOut() { responsiveMap.value?.zoomOut() },
+  resetZoom() { responsiveMap.value?.resetZoom() },
+  getScale() { return responsiveMap.value?.scale?.value ?? 1 }
+})
 </script>
 
 <style scoped>
 .game-board {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 15px;
+  position: relative;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
+  cursor: grab;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.05) 0%, transparent 70%);
 }
 
+.game-board:active {
+  cursor: grabbing;
+}
+
+/* 缩放控件 */
+.zoom-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 20;
+}
+
+.zoom-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zoom-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.zoom-btn:active {
+  transform: scale(0.95);
+}
+
+.zoom-reset {
+  font-size: 12px;
+  pointer-events: none;
+  background: rgba(255, 215, 0, 0.9);
+  color: #1a1a2e;
+}
+
+/* 地图容器 */
 .board-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1040px;
+  height: 720px;
+  margin-top: -360px;
+  margin-left: -520px;
+  transform-origin: center center;
+  will-change: transform;
+  user-select: none;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  position: relative;
+}
+
+.board-container.is-dragging {
+  transition: none;
+}
+
+/* 拖拽提示 */
+.drag-hint {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 20px;
+  font-size: 14px;
+  pointer-events: none;
+  backdrop-filter: blur(10px);
+  z-index: 15;
 }
 
 .notification-overlay {
@@ -464,6 +679,74 @@ function handleTileClick(tile) {
   z-index: 50;
 }
 
+.action-notify-bar {
+  position: absolute;
+  top: calc(50% - 110px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, rgba(30, 30, 50, 0.92) 0%, rgba(20, 20, 40, 0.92) 100%);
+  backdrop-filter: blur(15px);
+  border-radius: 16px;
+  border: 2px solid rgba(255, 215, 0, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 15px rgba(255, 215, 0, 0.2);
+  max-width: 340px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.action-notify-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.action-notify-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.action-notify-text {
+  font-size: 13px;
+  font-weight: bold;
+  color: #FFD700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.action-notify-detail {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.action-notify-enter-active {
+  transition: all 0.4s ease-out;
+}
+
+.action-notify-leave-active {
+  transition: all 0.3s ease-in;
+}
+
+.action-notify-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-15px);
+}
+
+.action-notify-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px);
+}
+
 .btn-center-dice {
   display: flex;
   flex-direction: column;
@@ -472,19 +755,19 @@ function handleTileClick(tile) {
   padding: 16px 28px;
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(15px);
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 3px solid var(--player-color, rgba(255, 255, 255, 0.5));
   border-radius: 16px;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2), 0 0 20px var(--player-color, rgba(255, 255, 255, 0.3));
   outline: none;
   -webkit-tap-highlight-color: transparent;
 }
 
 .btn-center-dice:hover {
   background: rgba(255, 255, 255, 0.25);
-  border-color: rgba(255, 255, 255, 0.5);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  border-color: var(--player-color, rgba(255, 255, 255, 0.7));
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25), 0 0 30px var(--player-color, rgba(255, 255, 255, 0.4));
   transform: translateY(-2px);
 }
 
@@ -556,17 +839,19 @@ function handleTileClick(tile) {
   align-items: center;
   gap: 8px;
   padding: 6px 16px;
-  background: rgba(255, 215, 0, 0.25);
+  background: var(--player-color, rgba(255, 215, 0, 0.25));
+  opacity: 0.85;
   backdrop-filter: blur(10px);
-  border: 1.5px solid rgba(255, 215, 0, 0.5);
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
   border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.2);
+  box-shadow: 0 2px 8px var(--player-color, rgba(255, 215, 0, 0.3));
 }
 
 .current-player-indicator .player-name {
   font-size: 13px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.95);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .current-player-indicator .turn-badge {
@@ -576,6 +861,40 @@ function handleTileClick(tile) {
   background: rgba(255, 215, 0, 0.2);
   padding: 3px 8px;
   border-radius: 8px;
+}
+
+.test-toggle-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.toggle-test-panel {
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.7);
+  background: linear-gradient(135deg, rgba(74, 85, 104, 0.6) 0%, rgba(45, 55, 72, 0.6) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.toggle-test-panel:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  color: white;
+}
+
+.toggle-test-panel.active {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.7) 0%, rgba(118, 75, 162, 0.7) 100%);
+  border-color: rgba(102, 126, 234, 0.5);
+  color: white;
 }
 
 .board-row {
@@ -646,6 +965,34 @@ function handleTileClick(tile) {
 
 .tile.property.owned {
   border-color: #FFD700;
+}
+
+.tile.property.selectable {
+  animation: selectable-pulse 1s ease-in-out infinite;
+  border-color: #FFD700;
+  border-width: 3px;
+  border-style: solid;
+  cursor: pointer;
+  z-index: 20;
+}
+
+@keyframes selectable-pulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 15px rgba(255, 215, 0, 0.6),
+      0 0 30px rgba(255, 215, 0, 0.4),
+      0 0 45px rgba(255, 215, 0, 0.2);
+    transform: scale(1);
+    border-color: #FFD700;
+  }
+  50% {
+    box-shadow: 
+      0 0 25px rgba(255, 215, 0, 1),
+      0 0 50px rgba(255, 215, 0, 0.7),
+      0 0 75px rgba(255, 215, 0, 0.4);
+    transform: scale(1.08);
+    border-color: #FFEB3B;
+  }
 }
 
 .tile.chance {
@@ -1035,6 +1382,20 @@ function handleTileClick(tile) {
     0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
+.tile-block {
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.7),
+    0 0 2px rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 3px 8px;
+  border-radius: 8px;
+  margin-bottom: 2px;
+  letter-spacing: 0.5px;
+}
+
 .tile-name {
   font-size: 10px;
   font-weight: 700;
@@ -1216,6 +1577,81 @@ function handleTileClick(tile) {
   border-radius: 6px;
   white-space: nowrap;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.skip-turn-indicator {
+  position: absolute;
+  top: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 20px rgba(255, 193, 7, 0.5);
+  animation: skip-turn-bounce 1.5s ease-in-out infinite;
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.player-character.in-jail .skip-turn-indicator {
+  background: linear-gradient(135deg, #78909c 0%, #546e7a 100%);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 20px rgba(120, 144, 156, 0.5);
+}
+
+.skip-icon {
+  font-size: 14px;
+  animation: skip-icon-pulse 1s ease-in-out infinite;
+}
+
+.skip-text {
+  font-size: 9px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes skip-turn-bounce {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-5px);
+  }
+}
+
+@keyframes skip-icon-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+.player-character.in-jail .character-body {
+  animation: jail-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes jail-pulse {
+  0%, 100% {
+    box-shadow: 
+      0 4px 8px rgba(0, 0, 0, 0.3),
+      0 0 15px rgba(120, 144, 156, 0.4);
+  }
+  50% {
+    box-shadow: 
+      0 4px 8px rgba(0, 0, 0, 0.3),
+      0 0 25px rgba(120, 144, 156, 0.7);
+  }
 }
 
 .board-container .bomb-overlay {
@@ -1406,6 +1842,363 @@ function handleTileClick(tile) {
   50% {
     transform: scale(1.1);
     filter: drop-shadow(0 0 25px rgba(255, 68, 68, 1));
+  }
+}
+
+/* Fade transition */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+@media (max-height: 500px) {
+  .zoom-controls {
+    display: none !important;
+  }
+
+  .test-toggle-container {
+    margin-top: 2px !important;
+  }
+
+  .toggle-test-panel {
+    padding: 4px 10px;
+    font-size: 10px;
+  }
+
+  /* 地图内提示框等比缩小 */
+  .bomb-overlay-content,
+  .select-property-overlay-content {
+    padding: 16px 20px !important;
+    border-radius: 14px !important;
+    gap: 8px !important;
+  }
+
+  .bomb-icon,
+  .select-property-icon {
+    font-size: 32px !important;
+  }
+
+  .bomb-title,
+  .select-property-title {
+    font-size: 15px !important;
+  }
+
+  .bomb-message,
+  .select-property-message {
+    font-size: 11px !important;
+    padding: 0 6px !important;
+  }
+
+  .bomb-cancel-btn {
+    margin-top: 4px !important;
+    padding: 7px 20px !important;
+    font-size: 11px !important;
+    border-radius: 8px !important;
+  }
+
+  /* 掷骰子按钮 */
+  .dice-center-container {
+    gap: 6px !important;
+  }
+
+  .btn-center-dice {
+    padding: 10px 18px !important;
+    border-radius: 12px !important;
+    border-width: 2px !important;
+  }
+
+  .dice-icon {
+    font-size: 24px !important;
+  }
+
+  .dice-text {
+    font-size: 11px !important;
+  }
+
+  .btn-center-item {
+    padding: 4px 10px !important;
+    border-radius: 10px !important;
+    gap: 4px !important;
+  }
+
+  .item-icon,
+  .item-text {
+    font-size: 10px !important;
+  }
+
+  /* 当前玩家指示器 */
+  .current-player-indicator {
+    padding: 4px 10px !important;
+    border-radius: 10px !important;
+  }
+
+  .current-player-indicator .player-name {
+    font-size: 10px !important;
+  }
+
+  .current-player-indicator .turn-badge {
+    font-size: 8px !important;
+    padding: 2px 5px !important;
+    border-radius: 5px !important;
+  }
+
+  /* 拍卖成功通知 */
+  .auction-success-message {
+    font-size: 13px !important;
+    padding: 8px 16px !important;
+    border-radius: 10px !important;
+  }
+}
+
+/* ==================== 网页端桌面屏幕适配 ==================== */
+
+/* 超大屏幕 (≥1920px) */
+@media (min-width: 1920px) {
+  .zoom-controls {
+    top: 24px;
+    right: 24px;
+    gap: 12px;
+  }
+
+  .zoom-btn {
+    width: 52px;
+    height: 52px;
+    font-size: 24px;
+  }
+
+  .zoom-reset {
+    font-size: 14px;
+  }
+
+  .dice-center-container {
+    gap: 20px;
+  }
+
+  .btn-center-dice {
+    padding: 20px 36px;
+    border-radius: 18px;
+    border-width: 3px;
+  }
+
+  .dice-icon {
+    font-size: 40px;
+  }
+
+  .dice-text {
+    font-size: 18px;
+  }
+
+  .btn-center-item {
+    padding: 12px 20px;
+    border-radius: 14px;
+    gap: 10px;
+  }
+
+  .item-icon,
+  .item-text {
+    font-size: 16px;
+  }
+
+  .current-player-indicator {
+    padding: 10px 20px;
+    border-radius: 14px;
+  }
+
+  .current-player-indicator .player-name {
+    font-size: 16px;
+  }
+
+  .current-player-indicator .turn-badge {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 8px;
+  }
+}
+
+/* 大屏幕 (1600px - 1919px) */
+@media (max-width: 1919px) and (min-width: 1600px) {
+  .zoom-controls {
+    top: 20px;
+    right: 20px;
+    gap: 10px;
+  }
+
+  .zoom-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
+  }
+
+  .zoom-reset {
+    font-size: 13px;
+  }
+
+  .dice-center-container {
+    gap: 18px;
+  }
+
+  .btn-center-dice {
+    padding: 18px 32px;
+    border-radius: 16px;
+  }
+
+  .dice-icon {
+    font-size: 36px;
+  }
+
+  .dice-text {
+    font-size: 16px;
+  }
+
+  .btn-center-item {
+    padding: 10px 18px;
+    border-radius: 12px;
+    gap: 8px;
+  }
+
+  .item-icon,
+  .item-text {
+    font-size: 15px;
+  }
+
+  .current-player-indicator {
+    padding: 8px 16px;
+    border-radius: 12px;
+  }
+
+  .current-player-indicator .player-name {
+    font-size: 14px;
+  }
+
+  .current-player-indicator .turn-badge {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+}
+
+/* 主流大屏幕 (1440px - 1599px) */
+@media (max-width: 1599px) and (min-width: 1440px) {
+  .zoom-controls {
+    top: 18px;
+    right: 18px;
+    gap: 9px;
+  }
+
+  .zoom-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+
+  .zoom-reset {
+    font-size: 12px;
+  }
+
+  .dice-center-container {
+    gap: 16px;
+  }
+
+  .btn-center-dice {
+    padding: 16px 28px;
+    border-radius: 14px;
+  }
+
+  .dice-icon {
+    font-size: 32px;
+  }
+
+  .dice-text {
+    font-size: 15px;
+  }
+
+  .btn-center-item {
+    padding: 9px 16px;
+    border-radius: 12px;
+    gap: 7px;
+  }
+
+  .item-icon,
+  .item-text {
+    font-size: 14px;
+  }
+
+  .current-player-indicator {
+    padding: 7px 14px;
+    border-radius: 12px;
+  }
+
+  .current-player-indicator .player-name {
+    font-size: 13px;
+  }
+
+  .current-player-indicator .turn-badge {
+    font-size: 10px;
+    padding: 3px 7px;
+    border-radius: 6px;
+  }
+}
+
+/* 标准桌面屏幕 (1280px - 1439px) */
+@media (max-width: 1439px) and (min-width: 1280px) {
+  .zoom-controls {
+    top: 16px;
+    right: 16px;
+    gap: 8px;
+  }
+
+  .zoom-btn {
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
+
+  .dice-center-container {
+    gap: 14px;
+  }
+
+  .btn-center-dice {
+    padding: 14px 24px;
+    border-radius: 12px;
+  }
+
+  .dice-icon {
+    font-size: 28px;
+  }
+
+  .dice-text {
+    font-size: 14px;
+  }
+
+  .btn-center-item {
+    padding: 8px 14px;
+    border-radius: 10px;
+    gap: 6px;
+  }
+
+  .item-icon,
+  .item-text {
+    font-size: 13px;
+  }
+
+  .current-player-indicator {
+    padding: 6px 12px;
+    border-radius: 10px;
+  }
+
+  .current-player-indicator .player-name {
+    font-size: 12px;
+  }
+
+  .current-player-indicator .turn-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 5px;
   }
 }
 </style>

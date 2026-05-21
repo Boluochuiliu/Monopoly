@@ -76,4 +76,37 @@ defineProps({
   color: rgba(255, 255, 255, 0.9);
   line-height: 1.6;
 }
+
+@media (max-height: 500px) {
+  .card-display {
+    padding: 16px;
+  }
+
+  .card-wrapper {
+    width: 200px !important;
+    padding: 16px !important;
+    border-radius: 12px !important;
+  }
+
+  .card-type-label {
+    font-size: 10px !important;
+    margin-bottom: 8px !important;
+    letter-spacing: 1px !important;
+  }
+
+  .card-icon {
+    font-size: 32px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .card-title {
+    font-size: 17px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .card-description {
+    font-size: 11px !important;
+    line-height: 1.5 !important;
+  }
+}
 </style>

@@ -1,0 +1,10 @@
+<view class="card-display">
+  <view class="card-wrapper {{cardType}}">
+    <view class="card-type-label">{{cardType === 'chance' ? '机会' : '命运'}}</view>
+    <view class="card-icon">
+      <text>{{cardType === 'chance' ? '🎲' : '🌟'}}</text>
+    </view>
+    <text class="card-title">{{card.title}}</text>
+    <text class="card-description">{{card.description}}</text>
+  </view>
+</view>

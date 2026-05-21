@@ -1,0 +1,58 @@
+<view class="page">
+  <view class="header">
+    <view class="back-btn" bindtap="goBack">
+      <text>← 返回</text>
+    </view>
+    <text class="title">房间号: {{roomId}}</text>
+    <view class="share-btn" bindtap="shareRoom">
+      <text>分享</text>
+    </view>
+  </view>
+
+  <view class="content">
+    <view class="info-card">
+      <text class="info-label">当前人数</text>
+      <text class="info-value">{{playerCount}}/{{maxPlayers}}</text>
+    </view>
+
+    <view class="players-list">
+      <view wx:for="{{players}}" wx:key="id" class="player-item">
+        <view class="player-avatar">
+          <text>{{item.isHost ? '👑' : (item.id === myPlayerId ? '👤' : '👥')}}</text>
+        </view>
+        <view class="player-info">
+          <text class="player-name">{{item.name}}{{item.isHost ? ' (房主)' : ''}}</text>
+          <view class="player-status">
+            <view class="status-dot {{item.ready ? 'ready' : ''}}"></view>
+            <text>{{item.ready ? '已准备' : '等待中'}}</text>
+          </view>
+        </view>
+        <view wx:if="item.id === myPlayerId" class="player-action">
+          <button class="ready-btn {{isReady ? 'cancel' : ''}}" bindtap="toggleReady">
+            {{isReady ? '取消准备' : '准备就绪'}}
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <view class="ai-info" wx:if="aiCount > 0">
+      <text class="ai-label">🤖 AI 玩家: {{aiCount}} 个</text>
+    </view>
+
+    <view class="tips">
+      <text>💡 提示: 让朋友输入房间号 {{roomId}} 加入游戏</text>
+    </view>
+  </view>
+
+  <view class="footer">
+    <button wx:if="isHost && canStart" class="start-btn" bindtap="startGame">
+      开始游戏
+    </button>
+    <view wx:else-if="isHost" class="wait-text">
+      等待其他玩家准备...
+    </view>
+    <view wx:else class="wait-text">
+      等待房主开始游戏...
+    </view>
+  </view>
+</view>

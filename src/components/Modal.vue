@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="handleOverlayClick">
+  <div v-if="visible" class="modal-overlay" :class="{ 'clickable': !disableOverlayClose }" @click.self="handleOverlayClick">
     <div class="modal-content">
       <div class="modal-header">
         <h3>{{ title }}</h3>
@@ -16,7 +16,7 @@
 </template>
 
 <script setup>
-defineProps({
+const props = defineProps({
   visible: {
     type: Boolean,
     default: false
@@ -28,12 +28,19 @@ defineProps({
   hideCloseButton: {
     type: Boolean,
     default: false
+  },
+  disableOverlayClose: {
+    type: Boolean,
+    default: false
   }
 });
 
 const emit = defineEmits(['close']);
 
 function handleOverlayClick() {
+  if (props.disableOverlayClose) {
+    return;
+  }
   emit('close');
 }
 </script>
@@ -45,12 +52,23 @@ function handleOverlayClick() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 9999;
+  padding: 20px;
+  box-sizing: border-box;
   animation: fadeIn 0.3s ease;
+}
+
+.modal-overlay.clickable {
+  cursor: pointer;
+}
+
+.modal-overlay:not(.clickable) {
+  cursor: default;
 }
 
 @keyframes fadeIn {
@@ -59,19 +77,26 @@ function handleOverlayClick() {
 }
 
 .modal-content {
-  background: linear-gradient(135deg, #4a4a7a 0%, #3a3a6a 50%, #2a2a5a 100%);
-  border-radius: 16px;
-  max-width: 500px;
   width: 90%;
-  max-height: 80vh;
-  overflow: auto;
+  max-width: 600px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: linear-gradient(135deg, rgba(30, 30, 50, 0.95), rgba(20, 20, 40, 0.95));
+  border-radius: 20px;
+  border: 2px solid rgba(255, 215, 0, 0.3);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  animation: slideIn 0.3s ease;
+  animation: modalSlideIn 0.3s ease-out;
 }
 
-@keyframes slideIn {
-  from { transform: translateY(-20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .modal-header {
@@ -111,5 +136,62 @@ function handleOverlayClick() {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+/* 平板和小屏幕适配 (≤768px) */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    max-width: none;
+    margin: 10px;
+    max-height: 90vh;
+    border-radius: 16px;
+  }
+
+  .modal-overlay {
+    padding: 10px;
+  }
+}
+
+/* 大屏幕适配 (≥1400px) */
+@media (min-width: 1400px) {
+  .modal-content {
+    max-width: 700px;
+  }
+}
+
+/* 手机端横屏适配 */
+@media (max-height: 500px) {
+  .modal-overlay {
+    padding: 8px;
+  }
+
+  .modal-content {
+    width: auto !important;
+    max-width: 380px !important;
+    max-height: 88vh !important;
+    border-radius: 14px !important;
+  }
+
+  .modal-header {
+    padding: 10px 14px !important;
+  }
+
+  .modal-header h3 {
+    font-size: 16px !important;
+  }
+
+  .btn-close {
+    font-size: 20px !important;
+  }
+
+  .modal-body {
+    padding: 12px 14px !important;
+  }
+
+  .modal-footer {
+    padding: 10px 14px !important;
+    gap: 8px !important;
+  }
 }
 </style>

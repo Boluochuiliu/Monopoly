@@ -1,0 +1,81 @@
+<view class="game-board">
+  <view class="board-container">
+    <view wx:if="{{auctionSuccessMessage}}" class="notification-overlay">
+      <view class="auction-success-message">{{auctionSuccessMessage}}</view>
+    </view>
+
+    <view wx:if="{{showDice && currentPlayer}}" class="dice-center-container" style="--player-color: {{currentPlayer.color.primary}}">
+      <view class="btn-center-dice" bindtap="onRollDice">
+        <text class="dice-icon">🎲</text>
+        <text class="dice-text">掷骰子</text>
+      </view>
+      <view wx:if="{{hasItems}}" class="btn-center-item" bindtap="onUseItem">
+        <text class="item-icon">🎒</text>
+        <text class="item-text">使用道具</text>
+      </view>
+      <view class="current-player-indicator">
+        <text class="player-name">{{currentPlayer.name}}</text>
+        <text class="turn-badge">行动中</text>
+      </view>
+    </view>
+
+    <view wx:if="{{placingBomb}}" class="bomb-overlay">
+      <view class="bomb-overlay-content">
+        <text class="bomb-icon">💣</text>
+        <text class="bomb-title">安放炸弹</text>
+        <text class="bomb-message">请点击地图上的格子安放炸弹</text>
+        <view class="btn btn-secondary bomb-cancel-btn" bindtap="onCancelBomb">取消放置</view>
+      </view>
+    </view>
+
+    <view wx:if="{{selectingPropertyForFree}}" class="select-property-overlay">
+      <view class="select-property-overlay-content">
+        <text class="select-property-icon">💰</text>
+        <text class="select-property-title">天使投资</text>
+        <text class="select-property-message">请点击地图上的空地选择一块地产</text>
+      </view>
+    </view>
+
+    <view class="board-row" wx:for="{{boardLayout}}" wx:key="rowIndex" wx:for-item="row" wx:for-index="rowIndex">
+      <view
+        class="tile {{getTileClass(tile)}}"
+        style="{{getTileStyle(tile)}}"
+        wx:for="{{row}}"
+        wx:key="id"
+        wx:for-item="tile"
+        data-tile="{{tile}}"
+        bindtap="handleTileClick"
+      >
+        <view wx:if="{{tile}}" class="tile-content">
+          <text wx:if="{{getTileIcon(tile)}}" class="tile-icon">{{getTileIcon(tile)}}</text>
+          <text class="tile-name">{{tile.name}}</text>
+          <text wx:if="{{tile.type === 'property'}}" class="tile-price">💰{{tile.price}}</text>
+          <view wx:if="{{tile.type === 'property' && getPropertyLevel(tile.id) > 0}}" class="tile-level">
+            <block wx:for="{{getPropertyLevel(tile.id)}}" wx:key="*this"><text class="star">⭐</text></block>
+          </view>
+          <text wx:if="{{bombs[tile.id]}}" class="tile-bomb">💣</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="players-layer">
+      <view
+        wx:for="{{activePlayers}}"
+        wx:key="id"
+        wx:for-item="player"
+        class="player-character {{player.isMoving ? 'is-moving' : ''}} {{currentPlayerIndex === player.id ? 'current-turn' : ''}} {{hasHallProtection(player) ? 'has-hall-buff' : ''}} {{player.inJail ? 'in-jail' : ''}} {{player.skipNextTurn ? 'skip-turn' : ''}}"
+        style="{{getPlayerStyle(player)}}"
+      >
+        <view wx:if="{{player.inJail || player.skipNextTurn}}" class="skip-turn-indicator">
+          <text class="skip-icon">{{player.inJail ? '🔒' : '⏭️'}}</text>
+          <text class="skip-text">{{player.inJail ? '监狱中' : '跳过'}}</text>
+        </view>
+        <view class="character-body" style="background-color: {{player.color.primary}}">
+          <text class="character-face">{{player.avatar}}</text>
+          <view class="character-shadow"></view>
+        </view>
+        <text class="character-name">{{player.name}}</text>
+      </view>
+    </view>
+  </view>
+</view>

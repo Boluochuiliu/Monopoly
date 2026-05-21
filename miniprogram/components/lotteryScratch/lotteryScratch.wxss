@@ -1,0 +1,84 @@
+.lottery-scratch-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40rpx;
+  padding: 40rpx;
+}
+
+.scratch-card {
+  position: relative;
+  width: 640rpx;
+  height: 440rpx;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 32rpx;
+  overflow: hidden;
+  box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.4);
+}
+
+.pattern-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 8rpx;
+  padding: 20rpx;
+  box-sizing: border-box;
+  z-index: 0;
+}
+
+.pattern-cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16rpx;
+}
+
+.pattern-cell text {
+  font-size: 112rpx;
+}
+
+.scratch-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 640rpx;
+  height: 440rpx;
+  z-index: 10;
+}
+
+.lottery-prize-display {
+  text-align: center;
+}
+
+.prize-text {
+  font-size: 44rpx;
+  font-weight: bold;
+  color: #888;
+}
+
+.prize-text.win {
+  color: #FFD700;
+  text-shadow: 4rpx 4rpx 8rpx rgba(0, 0, 0, 0.5);
+}
+
+.btn-lottery-close {
+  padding: 28rpx 80rpx;
+  font-size: 36rpx;
+  font-weight: bold;
+  border: none;
+  border-radius: 60rpx;
+  box-shadow: 0 8rpx 30rpx rgba(0, 0, 0, 0.3);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-lottery-close.win {
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  color: #8B4513;
+}

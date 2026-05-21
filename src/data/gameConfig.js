@@ -14,14 +14,14 @@ export const TILE_TYPES = {
 };
 
 export const BLOCK_COLORS = {
-  '江北一区': '#4CAF50',
-  '江北二区': '#8BC34A',
-  '江南一区': '#FF9800',
-  '江南二区': '#FFC107',
-  '东方区': '#2196F3',
-  '西方区': '#9C27B0',
-  '北方一区': '#00BCD4',
-  '北方二区': '#FF5722'
+  '渝中区': '#4CAF50',
+  '南岸区': '#8BC34A',
+  '沙坪坝区': '#FF9800',
+  '九龙坡区': '#FFC107',
+  '两江新区': '#2196F3',
+  '北碚区': '#9C27B0',
+  '巴南区': '#00BCD4',
+  '大渡口区': '#FF5722'
 };
 
 export const INITIAL_CASH = 2000;
@@ -35,45 +35,45 @@ export const LIQUIDATION_RATIO = 0.5;
 
 export const mapTiles = [
   { id: 1, type: TILE_TYPES.START, name: '起点', position: { row: 0, col: 0 }, direction: 'right' },
-  { id: 2, type: TILE_TYPES.PROPERTY, name: '江北一区-1', block: '江北一区', price: 420, position: { row: 0, col: 1 }, direction: 'right' },
+  { id: 2, type: TILE_TYPES.PROPERTY, name: '解放碑', block: '渝中区', price: 420, position: { row: 0, col: 1 }, direction: 'right' },
   { id: 3, type: TILE_TYPES.FATE, name: '命运', position: { row: 0, col: 2 }, direction: 'right' },
-  { id: 4, type: TILE_TYPES.PROPERTY, name: '江北一区-2', block: '江北一区', price: 360, position: { row: 0, col: 3 }, direction: 'right' },
-  { id: 5, type: TILE_TYPES.PROPERTY, name: '江北一区-3', block: '江北一区', price: 330, position: { row: 0, col: 4 }, direction: 'right' },
+  { id: 4, type: TILE_TYPES.PROPERTY, name: '洪崖洞', block: '渝中区', price: 360, position: { row: 0, col: 3 }, direction: 'right' },
+  { id: 5, type: TILE_TYPES.PROPERTY, name: '来福士', block: '渝中区', price: 330, position: { row: 0, col: 4 }, direction: 'right' },
   { id: 6, type: TILE_TYPES.STATION, name: '车站A', position: { row: 0, col: 5 }, direction: 'right' },
-  { id: 7, type: TILE_TYPES.PROPERTY, name: '江北一区-4', block: '江北一区', price: 290, position: { row: 0, col: 6 }, direction: 'right' },
-  { id: 8, type: TILE_TYPES.PROPERTY, name: '江南一区-1', block: '江南一区', price: 380, position: { row: 0, col: 7 }, direction: 'right' },
+  { id: 7, type: TILE_TYPES.PROPERTY, name: '十八梯', block: '渝中区', price: 290, position: { row: 0, col: 6 }, direction: 'right' },
+  { id: 8, type: TILE_TYPES.PROPERTY, name: '茶园', block: '南岸区', price: 340, position: { row: 0, col: 7 }, direction: 'right' },
   { id: 9, type: TILE_TYPES.SHOP, name: '道具店', position: { row: 0, col: 8 }, direction: 'right' },
-  { id: 10, type: TILE_TYPES.PROPERTY, name: '江南一区-2', block: '江南一区', price: 340, position: { row: 0, col: 9 }, direction: 'right' },
-  { id: 11, type: TILE_TYPES.PROPERTY, name: '江南一区-3', block: '江南一区', price: 330, position: { row: 0, col: 10 }, direction: 'right' },
-  { id: 12, type: TILE_TYPES.PROPERTY, name: '江南二区-1', block: '江南二区', price: 360, position: { row: 0, col: 11 }, direction: 'right' },
+  { id: 10, type: TILE_TYPES.PROPERTY, name: '南滨路', block: '南岸区', price: 380, position: { row: 0, col: 9 }, direction: 'right' },
+  { id: 11, type: TILE_TYPES.PROPERTY, name: '南山', block: '南岸区', price: 330, position: { row: 0, col: 10 }, direction: 'right' },
+  { id: 12, type: TILE_TYPES.PROPERTY, name: '磁器口', block: '沙坪坝区', price: 360, position: { row: 0, col: 11 }, direction: 'right' },
   { id: 13, type: TILE_TYPES.JAIL, name: '监狱', position: { row: 0, col: 12 }, direction: 'down' },
   { id: 14, type: TILE_TYPES.CHANCE, name: '机会', position: { row: 1, col: 12 }, direction: 'down' },
-  { id: 15, type: TILE_TYPES.PROPERTY, name: '江南二区-2', block: '江南二区', price: 350, position: { row: 2, col: 12 }, direction: 'down' },
+  { id: 15, type: TILE_TYPES.PROPERTY, name: '大学城', block: '沙坪坝区', price: 350, position: { row: 2, col: 12 }, direction: 'down' },
   { id: 16, type: TILE_TYPES.PARK, name: '公园', position: { row: 3, col: 12 }, direction: 'down' },
-  { id: 17, type: TILE_TYPES.PROPERTY, name: '江南二区-3', block: '江南二区', price: 340, position: { row: 4, col: 12 }, direction: 'down' },
+  { id: 17, type: TILE_TYPES.PROPERTY, name: '重庆西站', block: '沙坪坝区', price: 340, position: { row: 4, col: 12 }, direction: 'down' },
   { id: 18, type: TILE_TYPES.AUCTION, name: '拍卖行', position: { row: 5, col: 12 }, direction: 'down' },
-  { id: 19, type: TILE_TYPES.PROPERTY, name: '东方区-1', block: '东方区', price: 380, position: { row: 6, col: 12 }, direction: 'down' },
-  { id: 20, type: TILE_TYPES.PROPERTY, name: '东方区-2', block: '东方区', price: 320, position: { row: 7, col: 12 }, direction: 'down' },
+  { id: 19, type: TILE_TYPES.PROPERTY, name: '半山', block: '九龙坡区', price: 320, position: { row: 6, col: 12 }, direction: 'down' },
+  { id: 20, type: TILE_TYPES.PROPERTY, name: '万象城', block: '九龙坡区', price: 380, position: { row: 7, col: 12 }, direction: 'down' },
   { id: 21, type: TILE_TYPES.HALL, name: '市政厅', position: { row: 8, col: 12 }, direction: 'left' },
-  { id: 22, type: TILE_TYPES.PROPERTY, name: '江北二区-1', block: '江北二区', price: 410, position: { row: 8, col: 11 }, direction: 'left' },
-  { id: 23, type: TILE_TYPES.FUND, name: '社会基金', position: { row: 8, col: 10 }, direction: 'left' },
-  { id: 24, type: TILE_TYPES.PROPERTY, name: '江北二区-2', block: '江北二区', price: 370, position: { row: 8, col: 9 }, direction: 'left' },
+  { id: 22, type: TILE_TYPES.PROPERTY, name: '欢乐谷', block: '两江新区', price: 410, position: { row: 8, col: 11 }, direction: 'left' },
+  { id: 23, type: TILE_TYPES.FUND, name: '基金', position: { row: 8, col: 10 }, direction: 'left' },
+  { id: 24, type: TILE_TYPES.PROPERTY, name: '中央公园', block: '两江新区', price: 370, position: { row: 8, col: 9 }, direction: 'left' },
   { id: 25, type: TILE_TYPES.FATE, name: '命运', position: { row: 8, col: 8 }, direction: 'left' },
-  { id: 26, type: TILE_TYPES.PROPERTY, name: '江北二区-3', block: '江北二区', price: 320, position: { row: 8, col: 7 }, direction: 'left' },
-  { id: 27, type: TILE_TYPES.PROPERTY, name: '江北二区-4', block: '江北二区', price: 300, position: { row: 8, col: 6 }, direction: 'left' },
+  { id: 26, type: TILE_TYPES.PROPERTY, name: '光环', block: '两江新区', price: 320, position: { row: 8, col: 7 }, direction: 'left' },
+  { id: 27, type: TILE_TYPES.PROPERTY, name: '园博园', block: '两江新区', price: 300, position: { row: 8, col: 6 }, direction: 'left' },
   { id: 28, type: TILE_TYPES.SHOP, name: '道具店', position: { row: 8, col: 5 }, direction: 'left' },
-  { id: 29, type: TILE_TYPES.PROPERTY, name: '北方一区-1', block: '北方一区', price: 390, position: { row: 8, col: 4 }, direction: 'left' },
-  { id: 30, type: TILE_TYPES.PROPERTY, name: '北方一区-2', block: '北方一区', price: 340, position: { row: 8, col: 3 }, direction: 'left' },
+  { id: 29, type: TILE_TYPES.PROPERTY, name: '缙云山', block: '北碚区', price: 390, position: { row: 8, col: 4 }, direction: 'left' },
+  { id: 30, type: TILE_TYPES.PROPERTY, name: '北温泉', block: '北碚区', price: 340, position: { row: 8, col: 3 }, direction: 'left' },
   { id: 31, type: TILE_TYPES.STATION, name: '车站B', position: { row: 8, col: 2 }, direction: 'left' },
-  { id: 32, type: TILE_TYPES.PROPERTY, name: '北方一区-3', block: '北方一区', price: 320, position: { row: 8, col: 1 }, direction: 'left' },
+  { id: 32, type: TILE_TYPES.PROPERTY, name: '金刀峡', block: '北碚区', price: 320, position: { row: 8, col: 1 }, direction: 'left' },
   { id: 33, type: TILE_TYPES.CASINO, name: '赌场', position: { row: 8, col: 0 }, direction: 'up' },
-  { id: 34, type: TILE_TYPES.PROPERTY, name: '北方二区-1', block: '北方二区', price: 400, position: { row: 7, col: 0 }, direction: 'up' },
+  { id: 34, type: TILE_TYPES.PROPERTY, name: '巴滨路', block: '巴南区', price: 400, position: { row: 7, col: 0 }, direction: 'up' },
   { id: 35, type: TILE_TYPES.PARK, name: '公园', position: { row: 6, col: 0 }, direction: 'up' },
-  { id: 36, type: TILE_TYPES.PROPERTY, name: '北方二区-2', block: '北方二区', price: 340, position: { row: 5, col: 0 }, direction: 'up' },
-  { id: 37, type: TILE_TYPES.PROPERTY, name: '北方二区-3', block: '北方二区', price: 310, position: { row: 4, col: 0 }, direction: 'up' },
+  { id: 36, type: TILE_TYPES.PROPERTY, name: '南温泉', block: '巴南区', price: 340, position: { row: 5, col: 0 }, direction: 'up' },
+  { id: 37, type: TILE_TYPES.PROPERTY, name: '鱼洞', block: '巴南区', price: 310, position: { row: 4, col: 0 }, direction: 'up' },
   { id: 38, type: TILE_TYPES.CHANCE, name: '机会', position: { row: 3, col: 0 }, direction: 'up' },
-  { id: 39, type: TILE_TYPES.PROPERTY, name: '西方区-1', block: '西方区', price: 370, position: { row: 2, col: 0 }, direction: 'up' },
-  { id: 40, type: TILE_TYPES.PROPERTY, name: '西方区-2', block: '西方区', price: 330, position: { row: 1, col: 0 }, direction: 'up' }
+  { id: 39, type: TILE_TYPES.PROPERTY, name: '华生园', block: '大渡口区', price: 370, position: { row: 2, col: 0 }, direction: 'up' },
+  { id: 40, type: TILE_TYPES.PROPERTY, name: '白居寺', block: '大渡口区', price: 330, position: { row: 1, col: 0 }, direction: 'up' }
 ];
 
 export const chanceCards = [
@@ -159,12 +159,12 @@ export const LOTTERY_PRIZES = {
 };
 
 export const BLOCKS = {
-  '江北一区': [2, 4, 5, 7],
-  '江北二区': [22, 24, 26, 27],
-  '江南一区': [8, 10, 11],
-  '江南二区': [12, 15, 17],
-  '东方区': [19, 20],
-  '西方区': [39, 40],
-  '北方一区': [29, 30, 32],
-  '北方二区': [34, 36, 37]
+  '渝中区': [2, 4, 5, 7],
+  '南岸区': [8, 10, 11],
+  '沙坪坝区': [12, 15, 17],
+  '九龙坡区': [19, 20],
+  '两江新区': [22, 24, 26, 27],
+  '北碚区': [29, 30, 32],
+  '巴南区': [34, 36, 37],
+  '大渡口区': [39, 40]
 };

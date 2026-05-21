@@ -1,0 +1,7 @@
+{
+  "pages": ["pages/index/index", "pages/room/room", "pages/game/game"],
+  "window": {"backgroundTextStyle": "light", "navigationStyle": "custom", "backgroundColor": "#667eea", "pageOrientation": "landscape"},
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "cloud": true
+}

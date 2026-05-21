@@ -1,0 +1,93 @@
+<view class="player-panel {{isActive ? 'active' : ''}} {{player.bankrupt ? 'bankrupt' : ''}} {{player.bankruptWarning ? 'bankruptcy-warning' : ''}} {{!hasBuffs ? 'no-buffs' : ''}} {{isCompactMode ? 'compact-mode' : ''}}" style="--player-color: {{player.color.primary}};">
+  
+  <view class="panel-content">
+    
+    <view class="col-left">
+      <view class="player-avatar" style="background-color: {{player.color.primary}};">
+        {{player.avatar}}
+      </view>
+      
+      <view class="player-name">{{player.name}}</view>
+      
+      <view wx:if="{{hasStatus}}" class="status-bar">
+        <text wx:if="{{player.inJail}}" class="status-tag jail">🔒 监狱 {{jailRemainingTurns}}</text>
+        <text wx:if="{{player.skipNextTurn}}" class="status-tag skip">⏭️ 暂停</text>
+        <text wx:if="{{player.bankrupt}}" class="status-tag bankrupt">💀 破产</text>
+        <text wx:if="{{player.bankruptWarning}}" class="status-tag warning">⚠️ 预警 {{player.liquidationCountdown}}</text>
+      </view>
+    </view>
+
+    <view class="col-center">
+      <view class="resource-item cash">
+        <text class="resource-icon">💰</text>
+        <text class="resource-value">{{formatCash}}</text>
+      </view>
+      
+      <view 
+        class="resource-item property {{!isActive || player.bankrupt ? 'disabled' : ''}}"
+        bindtap="onOpenMortgage"
+      >
+        <text class="resource-icon">🏠</text>
+        <text class="resource-value">×{{propertyCount}}</text>
+      </view>
+      
+      <view class="resource-item mortgage">
+        <text class="resource-icon">💎</text>
+        <text class="resource-value">{{mortgageableValue}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{hasBuffs}}" class="col-right">
+      <scroll-view class="buffs-list" scroll-y="{{true}}">
+        <view
+          wx:for="{{activeBuffs}}"
+          wx:key="index"
+          class="buff-item {{isCompactMode ? 'compact-buff' : ''}}"
+          data-index="{{index}}"
+          bindtap="onBuffTap"
+        >
+          <text class="buff-icon">{{item.icon}}</text>
+          <text wx:if="{{!isCompactMode}}" class="buff-name">{{item.displayName}}</text>
+          <text class="buff-duration">{{item.remainingTimes}}</text>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <view wx:if="{{showTooltip}}" class="buff-tooltip-overlay" style="left: {{tooltipLeft}}rpx; top: {{tooltipTop}}rpx;" catchtap="onTooltipTap">
+    {{tooltipContent}}
+  </view>
+
+  <view wx:if="{{hasNotifications}}" class="notifications-float">
+    <view
+      wx:for="{{cashChanges}}"
+      wx:key="id"
+      class="cash-change-notify {{item.amount > 0 ? 'positive' : 'negative'}}"
+    >
+      {{item.amount > 0 ? '+' : ''}}{{item.amount}}
+    </view>
+    <view wx:if="{{showBuffActivation && buffActivationInfo}}" class="buff-activation-notify">
+      {{buffActivationInfo}}
+    </view>
+    <view wx:if="{{showSkipTurn}}" class="skip-turn-notify">
+      <text>{{player.inJail ? '🔒' : '⏭️'}}</text>
+      <text>{{player.inJail ? '监狱中' : '跳过回合'}}</text>
+    </view>
+    <view
+      wx:for="{{jailFreeRent}}"
+      wx:key="id"
+      class="jail-free-rent-notify"
+    >
+      <text>🔓</text>
+      <text>免租金</text>
+    </view>
+    <view
+      wx:for="{{freeRent}}"
+      wx:key="id"
+      class="free-rent-notify"
+    >
+      <text>🎫</text>
+      <text>免租金</text>
+    </view>
+  </view>
+</view>

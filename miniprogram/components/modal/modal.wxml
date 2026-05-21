@@ -1,0 +1,16 @@
+<view wx:if="{{visible}}" class="modal-overlay" bindtap="handleOverlayClick">
+  <view class="modal-content" catchtap="preventBubble">
+    <view class="modal-header">
+      <text class="modal-title">{{title}}</text>
+      <view wx:if="{{!hideCloseButton}}" class="btn-close" bindtap="onClose">
+        <text>×</text>
+      </view>
+    </view>
+    <view class="modal-body">
+      <slot></slot>
+    </view>
+    <view wx:if="{{hasFooter}}" class="modal-footer">
+      <slot name="footer"></slot>
+    </view>
+  </view>
+</view>

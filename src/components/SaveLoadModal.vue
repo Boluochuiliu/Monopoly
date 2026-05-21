@@ -251,4 +251,61 @@ onMounted(() => {
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.15);
 }
+
+@media (max-height: 500px) {
+  .modal-content {
+    padding: 18px 22px !important;
+    border-radius: 16px !important;
+    width: auto !important;
+    max-width: 380px !important;
+  }
+
+  .modal-title {
+    font-size: 18px !important;
+    margin: 0 0 16px 0 !important;
+  }
+
+  .save-slots {
+    gap: 8px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .save-slot {
+    padding: 10px 12px !important;
+    border-radius: 8px !important;
+  }
+
+  .slot-header {
+    margin-bottom: 4px !important;
+  }
+
+  .slot-name {
+    font-size: 13px !important;
+  }
+
+  .auto-badge {
+    font-size: 9px !important;
+    padding: 1px 6px !important;
+    border-radius: 5px !important;
+  }
+
+  .slot-info {
+    font-size: 11px !important;
+  }
+
+  .slot-details,
+  .slot-empty {
+    font-size: 10px !important;
+  }
+
+  .modal-actions {
+    gap: 8px !important;
+  }
+
+  .btn {
+    padding: 8px 20px !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+  }
+}
 </style>

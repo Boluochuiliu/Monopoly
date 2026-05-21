@@ -1,0 +1,416 @@
+<view class="game-play">
+
+  <view class="game-board-section">
+    <scroll-view scroll-x scroll-y class="map-scroll" enable-flex>
+      <view class="map-grid">
+        <block wx:for="{{mapTiles}}" wx:key="id">
+          <view class="tile {{item.type}}-tile" style="{{item.gridStyle}} {{item.tileStyle}}" bindtap="onTileTap" data-tile-id="{{item.id}}">
+            <text class="tile-icon">{{item.icon}}</text>
+            <view wx:if="{{item.blockTag}}" class="block-tag" style="background: {{item.blockColor}};">{{item.blockTag}}</view>
+            <text class="tile-name">{{item.name}}</text>
+            <text wx:if="{{item.showPrice}}" class="tile-price">{{item.price}}</text>
+
+            <view class="tile-players-container">
+              <block wx:for="{{item.playerIds}}" wx:for-item="pid" wx:key="*this">
+                <view class="player-character {{playersMap[pid].isMoving ? 'is-moving' : ''}} {{currentPlayerId === pid ? 'current-turn' : ''}} {{playersMap[pid].inJail ? 'in-jail' : ''}} {{playersMap[pid].skipNextTurn ? 'skip-turn' : ''}}" style="--player-color: {{playerColorMap[pid]}};">
+
+                  <view wx:if="{{playersMap[pid].inJail || playersMap[pid].skipNextTurn}}"
+                        class="status-badge">
+                    <text class="status-icon">{{playersMap[pid].inJail ? '🔒' : '⏭️'}}</text>
+                  </view>
+
+                  <view class="char-body">
+                    <text class="char-avatar">{{playersMap[pid].avatar}}</text>
+                  </view>
+
+                  <text class="char-name">{{playersMap[pid].name}}</text>
+                </view>
+              </block>
+            </view>
+
+            <text wx:if="{{item.hasBomb}}" class="bomb-ico">💣</text>
+            <view wx:if="{{item.hasOwner}}" class="owner-bar" style="background: {{item.ownerColor}};"></view>
+            <text wx:if="{{item.showLevel}}" class="level-text">Lv{{item.level}}</text>
+          </view>
+        </block>
+      </view>
+    </scroll-view>
+
+    <view class="responsive-center-controls" style="transform: translate(-50%, -50%) scale({{mapScale}});" role="region" aria-label="游戏控制面板">
+      <view class="controls-container">
+        <view class="control-btn dice-btn" style="--player-color: {{currentPlayerColor}};" bindtap="rollDice" role="button" aria-label="掷骰子" tabindex="0">
+          <text class="btn-icon">🎲</text>
+          <text class="btn-label">掷骰子</text>
+        </view>
+
+        <view class="control-btn item-btn" bindtap="useItem" role="button" aria-label="使用道具" tabindex="0">
+          <text class="btn-icon">🎒</text>
+          <text class="btn-label">使用道具</text>
+        </view>
+
+        <view class="turn-badge" style="background: {{turnBgColor}};" role="status" aria-live="polite">
+          <text class="turn-name">{{currentPlayerName}}</text>
+          <text class="turn-text">行动中</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="players-panel-section">
+    <scroll-view scroll-y class="players-scroll">
+      <view class="players-container">
+        <view class="player-panel {{currentPlayerIndex === index ? 'active' : ''}} {{item.bankrupt ? 'bankrupt' : ''}}" wx:for="{{players}}" wx:key="id">
+          <view class="col-left">
+            <view class="player-avatar" style="background: {{item.color}};">{{item.avatar}}</view>
+            <text class="player-name">{{item.name}}</text>
+            <text wx:if="{{currentPlayerIndex === index}}" class="status-tag active-tag">行动中</text>
+            <text wx:elif="{{item.inJail}}" class="status-tag jail-tag">监狱</text>
+            <text wx:elif="{{item.bankrupt}}" class="status-tag bankrupt-tag">破产</text>
+          </view>
+          <view class="col-center">
+            <view class="resource-item">
+              <text class="resource-icon">💰</text>
+              <text class="resource-value">{{item.cash}}</text>
+            </view>
+            <view class="resource-item">
+              <text class="resource-icon">🏠</text>
+              <text class="resource-value">{{item.propertyCount}}</text>
+            </view>
+            <view class="resource-item">
+              <text class="resource-icon">💎</text>
+              <text class="resource-value">{{item.itemCount}}</text>
+            </view>
+          </view>
+          <view wx:if="{{item.hasBuffs}}" class="col-right">
+            <view class="buff-item" wx:for="{{item.buffsList}}" wx:for-item="buff" wx:key="name">
+              <text class="buff-icon">{{buff.icon}}</text>
+              <text class="buff-duration">{{buff.turns}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view class="toolbar-section">
+    <view class="toolbar-container">
+      <view class="toolbar-btn" bindtap="zoomOut" role="button" aria-label="缩小地图">➖</view>
+      <view class="toolbar-btn zoom-reset-btn" bindtap="resetZoom" role="button" aria-label="重置缩放">{{Math.round(mapScale * 100)}}%</view>
+      <view class="toolbar-btn" bindtap="zoomIn" role="button" aria-label="放大地图">➕</view>
+      <view class="toolbar-btn" bindtap="showMenu" role="button" aria-label="打开菜单">☰</view>
+      <view class="toolbar-btn test-dice-btn" bindtap="showTestDice" role="button" aria-label="测试骰子">🎲</view>
+    </view>
+  </view>
+
+</view>
+
+<view wx:if="{{showDice}}" class="dice-modal">
+  <view class="dice-view">
+    <view class="dice-num {{isDiceAnimating ? (diceAnimationState === 'rolling' ? 'rolling' : 'settled') : ''}}">
+      <text class="{{diceAnimationState === 'rolling' ? 'flickering' : (diceAnimationState === 'settled' ? 'highlighted' : '')}}">{{diceValue}}</text>
+    </view>
+    <text class="dice-txt">{{diceTxt}}</text>
+  </view>
+</view>
+
+<view wx:if="{{showCard}}" class="modal">
+  <view class="modal-box">
+    <view class="modal-hd">
+      <text>{{cardTitle}}</text>
+    </view>
+    <view class="modal-bd">
+      <view class="card-ico" style="{{cardIconStyle}}">{{cardIcon}}</view>
+      <text class="card-name">{{cardName}}</text>
+      <text class="card-desc">{{cardDesc}}</text>
+    </view>
+    <view class="modal-ft">
+      <view class="btn btn-primary" bindtap="confirmCard">确定</view>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{showProperty}}" class="modal">
+  <view class="modal-box">
+    <view class="modal-hd">
+      <text>{{propertyTitle}}</text>
+    </view>
+    <view class="modal-bd">
+      <text class="prop-name">{{propertyName}}</text>
+      <view class="prop-info">
+        <text class="info-l">{{propertyLabel}}</text>
+        <text class="info-r">{{propertyAmount}}</text>
+      </view>
+    </view>
+    <view class="modal-ft">
+      <view class="btn btn-secondary" bindtap="closeProperty">取消</view>
+      <view wx:if="{{!propertyIsRent}}" class="btn btn-primary" bindtap="buyProperty">购买</view>
+      <view wx:else class="btn btn-primary" bindtap="payRent">支付</view>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{showFund}}" class="modal">
+  <view class="modal-box">
+    <view class="modal-hd">
+      <text>💰 基金</text>
+    </view>
+    <view class="modal-bd fund-box">
+      <text class="fund-tip">选择存入金额</text>
+      <view class="fund-btns">
+        <view class="fund-btn" wx:for="{{fundAmounts}}" wx:key="*this" bindtap="depositFund" data-amount="{{item}}">{{item}}</view>
+      </view>
+      <text class="rebate">存入后可获得10%返利</text>
+    </view>
+    <view class="modal-ft">
+      <view class="btn btn-secondary" bindtap="closeFund">关闭</view>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{showUpgrade}}" class="modal">
+  <view class="modal-box">
+    <view class="modal-hd">
+      <text>🏗️ 升级地产</text>
+    </view>
+    <view class="modal-bd">
+      <scroll-view scroll-y class="prop-list">
+        <view class="prop-item" wx:for="{{upgradableProps}}" wx:key="id" bindtap="selectUpgrade" data-id="{{item.id}}">
+          <text>{{item.name}}</text>
+          <text class="upgrade-cost">{{item.upgradeCost}}</text>
+        </view>
+      </scroll-view>
+    </view>
+    <view class="modal-ft">
+      <view class="btn btn-secondary" bindtap="closeUpgrade">取消</view>
+      <view wx:if="{{selectedUpgrade}}" class="btn btn-primary" bindtap="doUpgrade">升级</view>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{showCasino}}" class="modal">
+  <view class="modal-box">
+    <view class="modal-hd">
+      <text>🎰 赌场</text>
+    </view>
+    <view class="modal-bd" wx:if="{{casinoIsBetting}}">
+      <text>下注金额</text>
+      <view class="bet-box">
+        <view class="bet-btn {{betAmount === 100 ? 'active' : ''}}" bindtap="setBet" data-amt="100">100</view>
+        <view class="bet-btn {{betAmount === 200 ? 'active' : ''}}" bindtap="setBet" data-amt="200">200</view>
+        <view class="bet-btn {{betAmount === 500 ? 'active' : ''}}" bindtap="setBet" data-amt="500">500</view>
+      </view>
+      <text>猜大小</text>
+      <view class="guess-box">
+        <view class="guess-btn {{guessType === 'small' ? 'active' : ''}}" bindtap="setGuess" data-type="small">小 (1-18)</view>
+        <view class="guess-btn {{guessType === 'big' ? 'active' : ''}}" bindtap="setGuess" data-type="big">大 (19-36)</view>
+      </view>
+    </view>
+    <view class="modal-bd" wx:elif="{{casinoIsSpinning}}">
+      <view class="wheel-num">{{casinoNumber}}</view>
+    </view>
+    <view class="modal-bd" wx:elif="{{casinoIsResult}}">
+      <view class="result-icon">{{casinoResultIcon}}</view>
+      <text class="result-number">{{casinoNumber}}</text>
+      <text class="result-text" style="color: {{casinoResultColor}};">{{casinoResultText}}</text>
+      <text class="result-amount">{{casinoResultAmount}}</text>
+    </view>
+    <view class="modal-ft">
+      <view wx:if="{{casinoIsBetting}}" class="btn btn-secondary" bindtap="closeCasino">离开</view>
+      <view wx:if="{{casinoIsBetting}}" class="btn btn-primary" bindtap="spinWheel">开始</view>
+      <view wx:if="{{!casinoIsBetting}}" class="btn btn-primary" bindtap="confirmCasino">确定</view>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{showShop}}" class="modal">
+  <view class="modal-box">
+    <view class="modal-hd">
+      <text>🎒 道具店</text>
+    </view>
+    <view class="modal-bd shop-grid">
+      <view class="shop-card {{selectedShopIndex === index ? 'selected' : ''}}" wx:for="{{shopItems}}" wx:key="id" bindtap="selectShop" data-index="{{index}}">
+        <text class="shop-card-ico">{{item.icon}}</text>
+        <text class="shop-card-name">{{item.name}}</text>
+        <text class="shop-card-price">{{item.price}}</text>
+      </view>
+    </view>
+    <view class="modal-ft">
+      <view class="btn btn-secondary" bindtap="closeShop">离开</view>
+      <view wx:if="{{selectedShopIndex >= 0}}" class="btn btn-primary" bindtap="buyItem">购买</view>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{showUseItem}}" class="modal">
+  <view class="modal-box">
+    <view class="modal-hd">
+      <text>🎒 使用道具</text>
+    </view>
+    <view class="modal-bd">
+      <text>{{useItemTitle}}</text>
+      <view wx:if="{{!showDiceSelect}}" class="my-items">
+        <view wx:for="{{myItems}}" wx:key="id" class="my-item" bindtap="selectMyItem" data-index="{{index}}">
+          <text>{{item.icon}} {{item.name}}</text>
+        </view>
+      </view>
+      <view wx:else class="dice-list">
+        <view class="dice-num-btn" wx:for="{{diceNumbers}}" wx:key="*this" bindtap="pickDice" data-v="{{item}}">{{item}}</view>
+      </view>
+    </view>
+    <view class="modal-ft">
+      <view class="btn btn-secondary" bindtap="closeUseItem">取消</view>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{showLottery}}" class="modal">
+  <view class="modal-box">
+    <view class="modal-hd">
+      <text>🎫 刮刮乐</text>
+    </view>
+    <view class="modal-bd">
+      <view class="lot-pat">
+        <view class="lot-ico" wx:for="{{lotteryPattern}}" wx:key="*this">{{item}}</view>
+      </view>
+      <text wx:if="{{showLotteryResult}}" class="lot-prize" style="color: {{lotteryResultColor}};">{{lotteryResultText}}</text>
+    </view>
+    <view class="modal-ft">
+      <view wx:if="{{!showLotteryResult}}" class="btn btn-primary" bindtap="revealLottery">刮奖</view>
+      <view wx:else class="btn btn-primary" bindtap="confirmLottery">确定</view>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{showAuction}}" class="modal auction-modal">
+  <view class="modal-box auction-box">
+    <view class="modal-hd">
+      <text>🏛️ 拍卖行</text>
+    </view>
+    <view class="modal-bd">
+      <view class="auc-top-bar">
+        <view class="auc-prop-side">
+          <text class="auc-prop-name">{{auctionPropertyName}}</text>
+          <text class="auction-start-price">底价: {{auctionStartingPrice}}</text>
+        </view>
+        <view class="auc-bid-side">
+          <text class="auc-bid-label">最高</text>
+          <text class="bid-amount">{{auctionBid}}</text>
+        </view>
+      </view>
+      <text wx:if="{{auctionLeaderName}}" class="auc-lead">领先: {{auctionLeaderName}}</text>
+      <view class="auc-players">
+        <view class="auc-player {{item.isCurrentBidder ? 'active' : ''}}" wx:for="{{auctionPlayers}}" wx:key="id">
+          <view class="auc-left">
+            <text class="auc-player-icon">{{item.icon}}</text>
+            <text class="auc-player-name">{{item.name}}</text>
+            <text wx:if="{{item.passed}}" class="auc-passed">弃</text>
+            <text wx:elif="{{item.bankrupt}}" class="auc-bankrupt">破</text>
+          </view>
+          <text class="auc-player-money">{{item.money}}</text>
+          <text class="auc-player-status">{{item.isCurrentBidder ? '出价中' : ''}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="modal-ft">
+      <view wx:if="{{!isMyTurnToBid}}" class="btn btn-secondary" style="flex:1">等待中</view>
+      <block wx:else>
+        <input class="auc-ft-input" type="number" value="{{userBid}}" bindinput="onBidInput" placeholder="出价" />
+        <view class="btn btn-quick-bid" bindtap="quickBid">{{isFirstBid ? '一键出价' : '+' + minBidStep}}</view>
+        <view class="btn btn-secondary" bindtap="passBid">放弃</view>
+        <view class="btn btn-primary" bindtap="placeBid">出价</view>
+      </block>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{showMortgage}}" class="modal">
+  <view class="modal-box">
+    <view class="modal-hd">
+      <text>🏦 抵押管理</text>
+    </view>
+    <view class="modal-bd">
+      <view wx:if="{{hasMyProps}}" class="mort-list">
+        <view class="mort-item" wx:for="{{myProps}}" wx:key="id">
+          <view class="mort-info">
+            <text class="mort-name">{{item.name}}</text>
+            <text class="mort-status">{{item.mortgageStatus}}</text>
+            <text class="mort-value">{{item.mortgageValue}}</text>
+          </view>
+          <view class="btn btn-primary mort-btn" bindtap="toggleMortgage" data-id="{{item.id}}">
+            {{item.mortgageAction}}
+          </view>
+        </view>
+      </view>
+      <view wx:else class="mort-empty">暂无地产</view>
+    </view>
+    <view class="modal-ft">
+      <view class="btn btn-secondary" bindtap="closeMortgage">关闭</view>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{showLoad}}" class="modal">
+  <view class="modal-box">
+    <view class="modal-hd">
+      <text>📂 读取存档</text>
+    </view>
+    <view class="modal-bd">
+      <scroll-view scroll-y class="save-list">
+        <view class="save-item" wx:for="{{saves}}" wx:key="time" bindtap="loadSave" data-t="{{item.time}}">
+          <text>{{item.time}}</text>
+        </view>
+      </scroll-view>
+    </view>
+    <view class="modal-ft">
+      <view class="btn btn-secondary" bindtap="closeLoad">取消</view>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{showGameOver}}" class="game-over">
+  <view class="go-con">
+    <text class="go-ico">🏆</text>
+    <text class="go-name">{{winnerName}} 获胜!</text>
+    <text class="go-desc">恭喜获得胜利！</text>
+  </view>
+  <view class="go-btns">
+    <view class="btn btn-primary" bindtap="goHome">返回首页</view>
+  </view>
+</view>
+
+<view wx:if="{{showMenu}}" class="modal">
+  <view class="modal-box">
+    <view class="modal-hd">
+      <text>☰ 菜单</text>
+    </view>
+    <view class="modal-bd">
+      <view class="menu-item" bindtap="goHome">
+        <text>🏠 返回主页</text>
+      </view>
+      <view class="menu-item" bindtap="saveGame">
+        <text>💾 保存存档</text>
+      </view>
+    </view>
+    <view class="modal-ft">
+      <view class="btn btn-secondary" bindtap="closeMenu">关闭</view>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{showTestDice}}" class="test-overlay">
+  <view class="test-panel">
+    <view class="test-panel-hd">🎲 测试骰子</view>
+    <view class="test-panel-bd">
+      <view class="test-num-grid">
+        <view wx:for="{{[1,2,3,4,5,6,7,8,9]}}" wx:key="*this" class="test-num-cell" bindtap="testMove" data-steps="{{item}}">{{item}}</view>
+      </view>
+      <view class="test-custom-line">
+        <input class="test-step-input" type="number" placeholder="自定义步数" value="{{testInputValue}}" bindinput="onTestInputChange" />
+        <view class="test-go-cell" bindtap="testGo">GO</view>
+      </view>
+    </view>
+    <view class="test-panel-ft">
+      <view class="test-close-cell" bindtap="closeTestDice">关闭</view>
+    </view>
+  </view>
+</view>
